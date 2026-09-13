@@ -23,6 +23,15 @@
  message) is read from the TEXT_UI resource via GetFarText() rather than
  embedded as literals -- see game.sh for why this is scoped to
  hand-authored text only, not the generated Case File data.
+
+ Even a single Load/Dispose cycle isn't a full guarantee, though: this
+ dialect never compacts/coalesces freed heap, so enough runs played back
+ to back in one session (each with its own alloc/dispose churn) can
+ fragment the heap badly enough that no free block is big enough for a
+ description script's Load(), regardless of total free heap -- confirmed
+ on real hardware. MemoryInfo(miLARGESTPTR) (see game.sh's
+ CASEFILE_VIEW_MIN_HEAP) is checked before that Load() so this fails as
+ a graceful in-fiction message instead of a hard interpreter crash.
  ******************************************************************************/
 (include "sci.sh")
 (include "game.sh")
@@ -51,7 +60,7 @@
 	(var hDialog, hSelector, hDText, hViewBtn, hCloseBtn, i, curY, hResult,
 		localIndex, flatIndex, discovered, descBuf[180], titleBuf[48],
 		discoveredFlags[72], promptBuf[48], viewBuf[8], closeBuf[8],
-		sealedTitleBuf[8])
+		sealedTitleBuf[8], fragmentedTitleBuf[24])
 	// buf only needs the largest category's worth (Survival, 72*32=2304
 	// of its declared 3424 bytes). discoveredFlags[72] is a per-call local
 	// (well under the ~1KB known-safe size) -- caches each entry's
@@ -165,37 +174,50 @@
 		= discovered discoveredFlags[localIndex]
 
 		(if(discovered)
-			// Load one description script at a time and copy its string
-			// out immediately, rather than holding titles+descriptions
-			// both resident through the whole Print() call. Which script
-			// to load is a flat, mutually-exclusive check keyed off
-			// baseIndex (always exactly one of the three category bases).
-			(if(== baseIndex CASEFILE_SURVIVAL_BASE)
-				Load(rsSCRIPT CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT)
-				StrCpy(@descBuf CaseFileDescriptionSurvival(flatIndex))
-				DisposeScript(CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT)
+			(if(< MemoryInfo(miLARGESTPTR) CASEFILE_VIEW_MIN_HEAP)
+				// Heap too fragmented for a safe description-script Load()
+				// -- see game.sh's CASEFILE_VIEW_MIN_HEAP for the full
+				// story. Graceful in-fiction failure instead of a hard
+				// "Out of heap space" crash; no DisposeScript(TEXT_UI),
+				// same reasoning as the sealed-message branch below.
+				Load(rsTEXT TEXT_UI)
+				GetFarText(TEXT_UI TEXT_UI_CASEFILE_FRAGMENTED_TITLE @fragmentedTitleBuf)
+				Print(TEXT_UI TEXT_UI_CASEFILE_FRAGMENTED_MSG #title @fragmentedTitleBuf)
+			)(else
+				// Load one description script at a time and copy its
+				// string out immediately, rather than holding
+				// titles+descriptions both resident through the whole
+				// Print() call. Which script to load is a flat,
+				// mutually-exclusive check keyed off baseIndex (always
+				// exactly one of the three category bases).
+				(if(== baseIndex CASEFILE_SURVIVAL_BASE)
+					Load(rsSCRIPT CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT)
+					StrCpy(@descBuf CaseFileDescriptionSurvival(flatIndex))
+					DisposeScript(CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT)
+				)
+				(if(== baseIndex CASEFILE_FAILURE_BASE)
+					Load(rsSCRIPT CASEFILEDESCRIPTIONS_FAILURE_SCRIPT)
+					StrCpy(@descBuf CaseFileDescriptionFailure(flatIndex))
+					DisposeScript(CASEFILEDESCRIPTIONS_FAILURE_SCRIPT)
+				)
+				(if(== baseIndex CASEFILE_MECH_BASE)
+					Load(rsSCRIPT CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT)
+					StrCpy(@descBuf CaseFileDescriptionMechanisms(flatIndex))
+					DisposeScript(CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT)
+				)
+				// Title text is already sitting in buf's row ("N. Title",
+				// from the list-building loop above) -- no need for a
+				// second CaseFileTitles Load/Dispose cycle to re-fetch it.
+				// Scan past the "N. " prefix (find the literal '.', then
+				// skip it and the following space) rather than assuming a
+				// fixed digit count.
+				= i 0
+				(while(<> buf[(+ (* localIndex 32) i)] 46)
+					++i
+				)
+				StrCpy(@titleBuf (+ (+ @buf (* localIndex 32)) (+ i 2)))
+				Print(@descBuf #title @titleBuf)
 			)
-			(if(== baseIndex CASEFILE_FAILURE_BASE)
-				Load(rsSCRIPT CASEFILEDESCRIPTIONS_FAILURE_SCRIPT)
-				StrCpy(@descBuf CaseFileDescriptionFailure(flatIndex))
-				DisposeScript(CASEFILEDESCRIPTIONS_FAILURE_SCRIPT)
-			)
-			(if(== baseIndex CASEFILE_MECH_BASE)
-				Load(rsSCRIPT CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT)
-				StrCpy(@descBuf CaseFileDescriptionMechanisms(flatIndex))
-				DisposeScript(CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT)
-			)
-			// Title text is already sitting in buf's row ("N. Title", from
-			// the list-building loop above) -- no need for a second
-			// CaseFileTitles Load/Dispose cycle to re-fetch it. Scan past
-			// the "N. " prefix (find the literal '.', then skip it and the
-			// following space) rather than assuming a fixed digit count.
-			= i 0
-			(while(<> buf[(+ (* localIndex 32) i)] 46)
-				++i
-			)
-			StrCpy(@titleBuf (+ (+ @buf (* localIndex 32)) (+ i 2)))
-			Print(@descBuf #title @titleBuf)
 		)(else
 			// The message itself comes straight from TEXT_UI via Print()'s
 			// own native support for it (params[0] < 1000 -- see

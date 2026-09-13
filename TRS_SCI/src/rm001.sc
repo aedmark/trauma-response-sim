@@ -44,7 +44,9 @@
 	(method (init)
 		(var newSessionPromptBuf[72], newSessionTitleBuf[16],
 			standardBtnBuf[32], extendedBtnBuf[48], extendedTitleBuf[24],
-			viewCaseFiles, caseFileChoice)
+			viewCaseFiles, caseFileChoice, caseFilesReviewPromptBuf[96],
+			caseFilesReviewTitleBuf[16], caseFilesReviewYesBuf[16],
+			caseFilesReviewNoBuf[16])
 		// same in every script, starts things up
   		(super:init())
   		(self:setScript(RoomScript))
@@ -124,17 +126,22 @@
 		// ShowCaseFileCategory() verbatim -- same two-stage Load/Dispose
 		// as menubar.sc's MENU_CASEFILES handler and rm002.sc's filing
 		// cabinet (CaseFiles.sc and CaseFileCategory.sc must never both
-		// be resident, see CaseFileCategory.sc's header). Plain string
-		// literals rather than TEXT_UI -- this prompt didn't exist when
-		// TEXT_UI's hand-authored-string entries were authored.
+		// be resident, see CaseFileCategory.sc's header). Text read from
+		// TEXT_UI (see game.sh) same as the Extended Therapy prompt
+		// below, not embedded as literals.
 		(if(gNgPlusUnlocked)
+			Load(rsTEXT TEXT_UI)
+			GetFarText(TEXT_UI TEXT_UI_CASEFILES_REVIEW_PROMPT @caseFilesReviewPromptBuf)
+			GetFarText(TEXT_UI TEXT_UI_CASEFILES_REVIEW_TITLE @caseFilesReviewTitleBuf)
+			GetFarText(TEXT_UI TEXT_UI_CASEFILES_REVIEW_YES_BTN @caseFilesReviewYesBuf)
+			GetFarText(TEXT_UI TEXT_UI_CASEFILES_REVIEW_NO_BTN @caseFilesReviewNoBuf)
 			= viewCaseFiles PrintChoices(
-				"Welcome back. Would you like to review your case files before starting a new session?"
-				"Welcome Back"
+				@caseFilesReviewPromptBuf
+				@caseFilesReviewTitleBuf
 				290
 				NULL
-				"Yes" TRUE
-				"No" FALSE
+				@caseFilesReviewYesBuf TRUE
+				@caseFilesReviewNoBuf FALSE
 			)
 			(if(viewCaseFiles)
 				Load(rsSCRIPT CASEFILES_SCRIPT)

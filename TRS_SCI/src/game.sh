@@ -285,6 +285,31 @@
 (define TEXT_UI_EXTENDED_BTN				13)
 (define TEXT_UI_EXTENDED_STARTED_MSG		14)
 (define TEXT_UI_EXTENDED_STARTED_TITLE		15)
+(define TEXT_UI_CASEFILES_REVIEW_PROMPT	16)
+(define TEXT_UI_CASEFILES_REVIEW_TITLE		17)
+(define TEXT_UI_CASEFILES_REVIEW_YES_BTN	18)
+(define TEXT_UI_CASEFILES_REVIEW_NO_BTN	19)
+(define TEXT_UI_CASEFILE_FRAGMENTED_MSG	20)
+(define TEXT_UI_CASEFILE_FRAGMENTED_TITLE	21)
+
+// Heap-fragmentation guard for CaseFileCategory.sc's "View" handler (see
+// its own header for the original heap-exhaustion saga this continues).
+// This dialect's Load/Dispose cycling doesn't reliably reclaim/compact
+// memory, so enough runs in one session -- each doing plenty of its own
+// small alloc/dispose churn -- can fragment the heap badly enough that
+// no single free block is big enough for a description script's Load(),
+// even with total free heap to spare. MemoryInfo(miLARGESTPTR) reports
+// that largest-contiguous-block number directly (already used for the
+// debug memory display in Game.sc/Main.sc); checking it before the
+// Load() turns a hard "Out of heap space" crash into a graceful
+// in-fiction message instead.
+//
+// 4096 is a starting estimate, not a measured value -- the actual
+// description scripts' compiled sizes aren't visible from source. Tune
+// this against real MemoryInfo(miLARGESTPTR) readings (Game.sc's
+// showMem) taken right before a View click, ideally reproducing the
+// original bug report's multi-run session on real hardware.
+(define CASEFILE_VIEW_MIN_HEAP		4096)
 
 // Inventory Items
 (define INV_NOTHING           0)

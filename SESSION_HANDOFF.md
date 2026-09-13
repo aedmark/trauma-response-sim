@@ -121,14 +121,45 @@ Extended Therapy (20 turns, every stat swing scaled ×1.25, including
 mechanism modifiers and the glitch wildcard) choice at `rm001.sc`'s
 `init()`. Confirmed working end to end, including a full 20-turn run.
 
-**Player portrait**: shown inside the `PrintChoices` dialog itself (a
-`DIcon`, not a room-background draw — the room background is almost
-always covered by the dialog anyway) via `mechanisms.sc`'s
-`GetPortraitMood()`, 4 loops (neutral + one per stat), switching away
-from neutral once the worst stat's "danger" value crosses
-`PORTRAIT_NEUTRAL_THRESHOLD` (60). Currently one fixed character (view
-801) with all 4 moods drawn — see "Future ideas" below for a selectable-
-portrait idea the user wants to revisit later.
+**Player portrait — now selectable, 4 options.** Shown inside the
+`PrintChoices` dialog itself (a `DIcon`, not a room-background draw) via
+`mechanisms.sc`'s `GetPortraitMood()`/`PortraitViewForIndex()`, 4 mood
+loops per option (neutral/repression/mask/child, switching away from
+neutral once the worst stat's danger value crosses
+`PORTRAIT_NEUTRAL_THRESHOLD`=60). `PORTRAIT_VIEW_0..3` (801-804, game.sh)
+— one full mood set per option, `gPortraitChoice` (Main.sc) holds which
+one, chosen fresh every run via `PromptPortraitChoice()`
+(printchoices.sc) at the same point `rm001.sc` asks the Extended Therapy
+question. Placeholder art is fixed at 80x60, which is too tall to stack
+4-high on the 200px screen the way `PrintChoices` stacks text buttons —
+the picker instead lays 2 options per page out horizontally, paginated
+with the same More/Back buttons `PrintChoices` uses. **Confirmed working
+by the user.** Real art (beyond placeholders) not yet done.
+
+**Case Files review for returning players**: `rm001.sc`'s per-run setup
+now also offers "review your case files before starting a new session?"
+(Yes/No, `TEXT_UI` entries 16-19) gated on `gNgPlusUnlocked` — the same
+signal already used for the Extended Therapy choice, i.e. "has survived
+a run before," not "has ever launched the game." Reuses
+`ShowCaseFiles()`/`ShowCaseFileCategory()` verbatim, same two-stage
+Load/Dispose sequence menubar.sc's menu item and rm002.sc's filing
+cabinet already used.
+
+**Case Files "View" heap-fragmentation guard**: a real "Out of heap
+space" report came in from a player on real period hardware who'd played
+a 10-turn run then a 20-turn run in the same session before viewing an
+ending — the per-click Load/Dispose cost was already minimized (see
+Load/Dispose discipline above), so this was pure cross-run heap
+fragmentation, confirmed a real dialect limitation with no
+script-callable way to force a full interpreter restart mid-session.
+`CaseFileCategory.sc`'s "View" handler now checks
+`MemoryInfo(miLARGESTPTR)` (the largest *contiguous* free block, not
+just total free heap — already used for `Game.sc`/`Main.sc`'s debug
+memory display) against `CASEFILE_VIEW_MIN_HEAP` (game.sh, currently
+4096 — an estimate, not a measured value) before attempting the
+description-script Load, failing as a graceful in-fiction message
+(`TEXT_UI` entries 20-21) instead of a hard crash. Not yet re-tested
+against the original multi-run repro on real hardware.
 
 **Stat display**: the status line (always visible, including over an
 open dialog) shows live percentages — `T.R.S.    REP: 40 % | MASK: 60 % |
@@ -332,19 +363,30 @@ after editing the relevant `js/content*.js` source.
   `TRS_SCI/art/` is the user's own working art/audio source (gitignored,
   not build source). Any `.zip` directly under `TRS_SCI/` is a
   regenerated distribution build (gitignored).
-- **SCI Companion IDE**: `/home/gordonk/WebstormProjects/sci_companion/`
-  — deliberately kept OUT of any git repo (third-party binary tooling).
+- **SCI Companion IDE source**: `/home/gordonk/WebstormProjects/SCICompanion/`
+  (own git repo, forked at github.com/aedmark/SCICompanion — NOT the
+  same repo as the game; this is the IDE/compiler's own C++ source, kept
+  separate deliberately). This path has moved twice this project
+  (`TRS_SCI/SCICompanion-SRC/` → `~/CLionProjects/SCICompanion/` → here)
+  — if a future session finds source at an old path, it's stale; this is
+  the current one.
 - **Editing**: done directly on the Linux host with normal file tools.
-- **Compiling**: must happen in a Windows VM (QEMU/KVM, domain `win10`,
-  NAT `192.168.122.0/24`) — SCI Companion's editor runs fine under Wine,
-  but its compiler hangs indefinitely under Wine. No CLI/batch compiler
-  exists; a human clicks Compile in the VM each time. Bridge: a Samba
-  share on the host, mapped as a network drive in the VM (share should
-  point at `~/WebstormProjects/` so both `trauma-response-sim/TRS_SCI`
-  and `sci_companion` are visible under one mapped drive). A batch of new,
-  cross-referencing scripts often needs 2-3 rounds of "Compile All" +
-  "Rebuild Resources" before everything settles — expected, not a bug,
-  as long as errors are shrinking/changing each round.
+- **Compiling now works natively under Wine — the VM is no longer
+  required.** The "compiler hangs indefinitely under Wine" limitation
+  this bullet used to describe was root-caused and fixed: an infinite
+  repaint loop in Prof-UIS's `ExtTabControl::OnEraseBkgnd` (an
+  unconditional `SetFont()` call re-triggering its own redraw every
+  frame — Wine's tab control doesn't tolerate this the way real Windows
+  does), plus a separate `SHAppBarMessage` docking-layout issue and a
+  round of C++17 modernization needed just to build on a current MSVC at
+  all. Fixes are upstreamed as icefallgames/SCICompanion#29 (compile
+  fix), #30 (see Findings below for a second, unrelated Wine bug this
+  session also found and fixed: the brush/pen tool always painting
+  black), and #32 (file dialogs not remembering the last browsed folder
+  — also Findings below). A batch of new, cross-referencing scripts
+  often still needs 2-3 rounds of "Compile All" + "Rebuild Resources"
+  before everything settles — expected, not a bug, as long as errors
+  are shrinking/changing each round.
 - **Testing compiled output**: **DOSBox-X**, run natively on the Linux
   host (`paru -S dosbox-x`):
   ```
@@ -520,6 +562,77 @@ after editing the relevant `js/content*.js` source.
   address with no indication why. Fix: `sudo ufw allow in on virbr0`.
 - **Modern Windows 10 refuses passwordless/guest SMB** — set a real
   Samba password (`smbpasswd -a <user>`), don't bother with no-auth.
+- **SCI Companion (the IDE, not the game) had two separate real Wine
+  bugs this session, both upstreamed as PRs against
+  icefallgames/SCICompanion**: (1) the compile-hang above (#29), and (2)
+  the raster/cel editor's brush tool always painting black regardless of
+  selected color (#30) — root cause was `TransparentBlt`-ing a 1bpp
+  pattern bitmap and relying on the destination DC's `SetTextColor()`
+  being substituted in during the blit (real, documented Win32 behavior,
+  but Wine's GDI doesn't reproduce it); fixed by reading the pattern
+  bitmap's own bits and calling `SetPixelV` directly instead of
+  depending on that platform-specific blit behavior. General lesson:
+  when something works on the SCI Companion IDE side of things but not
+  under Wine, look for a real, narrow Win32/GDI behavior the app is
+  (correctly) relying on that Wine's reimplementation doesn't fully
+  replicate — every such bug found so far has had exactly this shape,
+  not a vague "Wine is broken" cause.
+- **File dialogs (in the IDE) not remembering the last folder used, in
+  the same Wine session or across restarts, on every single Open/Save
+  dialog in the app — root-caused, fixed, confirmed by the user, and
+  upstreamed as icefallgames/SCICompanion#32.** First theory —
+  `OFN_NOCHANGEDIR` (present on all 20 `CFileDialog` call sites,
+  apparently copy-pasted everywhere; a documented no-op on real Windows
+  since XP/2000, so removing it was zero-risk) — **disproven**: removed
+  from all 20 call sites, user confirmed zero change, amnesia persisted
+  across the board. Real cause: Wine's `comdlg32` just doesn't implement
+  the "remember last folder" behavior real Windows relies on (no flag
+  controls this — it isn't something the app can turn back on). Fix:
+  the app now tracks it itself. `SCICompanionLib/Src/Util/
+  PersistentFileDialog.h/.cpp` (new files, registered in the vcxproj —
+  new source files always need an explicit `<ClCompile>`/`<ClInclude>`
+  entry or they silently don't build; forgetting this produces
+  unresolved-external linker errors for the new class even though the
+  header compiles fine, and if VS already has the project loaded when
+  the vcxproj is edited on disk it may not notice the new file until the
+  project is explicitly reloaded) adds `CPersistentFileDialog`, a
+  drop-in `CFileDialog` subclass that reads/writes a persisted
+  "LastBrowsedFolder" app setting (via the same `GetProfileString`/
+  `WriteProfileString` mechanism already used elsewhere in this
+  codebase, e.g. `CCrystalTextView.cpp`'s find/print settings) on
+  construction/successful `DoModal()`. Swapped in at all 18 of the 20
+  call sites that didn't already have an intentional, context-specific
+  initial directory (`ScriptDocument.cpp` and `GamePropertiesDialog.cpp`
+  both deliberately default into the *current game's* folder, not "last
+  browsed" — left alone, correctly). **Confirmed by the user**: Save,
+  Save As, and Import-style dialogs all now remember the last folder
+  correctly.
+  `File > Open Game` (`ID_FILE_OPEN`) needed a second round: the first
+  attempt tried temporarily pointing the process's current directory at
+  the persisted folder before calling `__super::OnFileOpen()`, on the
+  theory that stock `DoPromptFileName()` falls back to the process's CWD
+  for its initial folder — user tested, **disproven**, still amnesiac.
+  Root cause: `CWinApp::OnFileOpen()`/`CDocManager::DoPromptFileName()`
+  own their `CFileDialog` internally and never expose `lpstrInitialDir`
+  to a caller at all, so that path was always going to depend entirely
+  on Wine's broken `comdlg32` memory no matter what the calling process's
+  CWD was — the CWD fallback that theory relied on isn't how modern
+  Explorer-style common dialogs actually pick their starting folder.
+  Also discovered along the way: there's no `STRINGTABLE` entry for the
+  game doc template (`IDR_MAINFRAME`), so that stock dialog was never
+  showing a game-specific filter anyway — just the union of every other
+  registered resource type's filters, plus "All Files," with the user
+  expected to manually navigate to `resource.map`. Final fix: stopped
+  delegating to `CWinApp::OnFileOpen()` entirely.
+  `SCICompanionApp::OnFileOpen()` now shows its own
+  `CPersistentFileDialog` filtered specifically to `resource.map`, and
+  calls the app's own `OpenDocumentFile()` directly on success — same
+  mechanism as the other 18 sites, and arguably a UX improvement over
+  the generic reused dialog. **Confirmed by the user.** The "last
+  folder" setting for this path also updates via the existing
+  `AddToRecentFileList()` override, which fires with the game folder on
+  every successful open (including via the Recent Files menu, which
+  doesn't go through any dialog at all).
 
 ## Open items — what's actually left
 
@@ -554,36 +667,20 @@ after editing the relevant `js/content*.js` source.
    check is simply: does a standard run complete, does Extended
    Therapy unlock and work, does Case Files show discovered/sealed
    correctly and let you view a description, do both office hotspots
-   work — all confirmed at least once, but a regression from an
-   unrelated future change is always possible.
+   work, does the portrait picker show and let you pick — all confirmed
+   at least once, but a regression from an unrelated future change is
+   always possible.
+4. ~~SCI Companion IDE file dialogs not remembering the last folder~~ —
+   **done.** Confirmed fixed by the user under Wine (all 18 general
+   dialogs, plus `File > Open Game` after a second-round fix), upstreamed
+   as icefallgames/SCICompanion#32. See Findings above for the full
+   root-cause story if a similar Wine/comdlg32 issue ever comes up again.
 
 ## Future ideas (not started, no urgency)
 
-- **Selectable player portraits, representing a broad spectrum of
-  humans** — the user's own explicit ask, to revisit later, not
-  scoped or started. Right now there's exactly one character (view
-  801, 4 mood loops: neutral/repression/mask/child -- see "Player
-  portrait" above and `portrait_*.bmp` in `TRS_SCI/art/`). The idea is
-  letting the player pick which portrait represents them from a
-  diverse roster before a run starts, rather than always seeing the
-  same one character.
-  - **Real open design questions, not decided**: (1) *Where the art
-    lives* -- either one View resource per character (802, 803, ...),
-    each with its own 4 mood loops, selected by swapping which
-    `PORTRAIT_VIEW`-equivalent constant is active for the session; or
-    one bigger View with more loops (character N's moods at loops
-    `N*4`..`N*4+3`), selected via a base-loop-offset global. Neither is
-    started or chosen. (2) *Where the picker lives* -- most natural
-    fits given this project's existing flow are `TitleScreen.sc` (once,
-    at boot) or folded into `rm001.sc`'s existing Extended Therapy
-    mode-choice dialog (once per run). (3) *Does it persist* -- pick
-    once per session, once ever (saved alongside `gCF0..gCF107`-style
-    persistence), or fresh every run. (4) *Art volume* -- each
-    additional character multiplies the mood-art requirement by 4 (one
-    set per character, matching today's `portrait_normal/repression/
-    mask/child.bmp` pattern), so this scales art effort directly with
-    how many options are offered.
-  - Whoever picks this up next should treat these as open questions to
-    resolve with the user, not assumptions to make -- matching how the
-    Case Files category-menu and choice-pagination work earlier in this
-    project were both scoped by asking first, not guessing.
+- **Real portrait art for the 4 selectable options** — see "Player
+  portrait" above; the picker itself is built and confirmed working,
+  currently with 80x60 placeholder art for all 4 options. Each
+  additional/replacement option needs the full 4-mood set (neutral/
+  repression/mask/child), matching the existing `portrait_*.bmp`
+  pattern in `TRS_SCI/art/`.
