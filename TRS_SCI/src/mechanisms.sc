@@ -211,6 +211,24 @@
 	return(+ worst 1)
 )
 /******************************************************************************/
+(procedure public (PortraitViewForIndex idx)
+	// Maps a portrait index (0..PORTRAIT_COUNT-1 -- see game.sh and
+	// PromptPortraitChoice, printchoices.sc) to its PORTRAIT_VIEW_n
+	// resource number. gPortraitChoice (Main.sc) holds whichever index
+	// the player picked at the start of this run; PrintChoices' mood
+	// icon calls this with gPortraitChoice directly.
+	(if(== idx 1)
+		return(PORTRAIT_VIEW_1)
+	)
+	(if(== idx 2)
+		return(PORTRAIT_VIEW_2)
+	)
+	(if(== idx 3)
+		return(PORTRAIT_VIEW_3)
+	)
+	return(PORTRAIT_VIEW_0)
+)
+/******************************************************************************/
 (procedure public (ZoneStatBias zoneIndex)
 	// Zone -> stat-bias mapping, matching the original's `zones` array.
 	// Encoding matches PickWorstStat: 0=repression, 1=mask, 2=child.

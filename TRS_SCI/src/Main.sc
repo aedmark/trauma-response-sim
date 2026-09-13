@@ -60,6 +60,7 @@
 	gMaxTurns = DEFAULT_MAX_TURNS	/* set per-run in rm001.sc's init() */
 	gHardMode = FALSE		/* Extended Therapy, chosen per-run in rm001.sc; not itself persisted, see gNgPlusUnlocked */
 	gNgPlusUnlocked = FALSE	/* permanently TRUE once a standard run has ever survived -- mirrors gCF107/CASEFILE_NGPLUS, synced in Template:init() */
+	gPortraitChoice = 0	/* which of PORTRAIT_VIEW_0..3 (game.sh) the player is; chosen per-run in rm001.sc, same lifecycle as gHardMode */
 
 	/* Coping-mechanism tracking: same-tag choices made this run, and
 	   whether it's permanently unlocked (UNLOCK_THRESHOLD -- see
@@ -301,9 +302,15 @@
 		Load(rsCURSOR	gNormalCursor)
 		Load(rsCURSOR	gLoadingCursor)
 
-		// Player portrait (view 801) -- see game.sh and
-		// printchoices.sc's GetPortraitMood()/DIcon usage.
-		Load(rsVIEW		PORTRAIT_VIEW)
+		// Player portrait -- see game.sh and printchoices.sc's
+		// GetPortraitMood()/PromptPortraitChoice()/DIcon usage. All 4
+		// appearance options loaded up front (same "load once, small
+		// resource" treatment as the fonts/cursors above) since the
+		// player can pick any of them at the start of a run.
+		Load(rsVIEW		PORTRAIT_VIEW_0)
+		Load(rsVIEW		PORTRAIT_VIEW_1)
+		Load(rsVIEW		PORTRAIT_VIEW_2)
+		Load(rsVIEW		PORTRAIT_VIEW_3)
 
 	    (if(HaveMouse())
 	    	(send gGame:setCursor(gNormalCursor SET_CURSOR_VISIBLE))
@@ -376,9 +383,14 @@
   			Load(rsCURSOR	gNormalCursor)
   			Load(rsCURSOR	gLoadingCursor)
 
-  			// Player portrait (view 801) -- see game.sh and
-  			// printchoices.sc's GetPortraitMood()/DIcon usage.
-  			Load(rsVIEW		PORTRAIT_VIEW)
+  			// Player portrait -- see game.sh and printchoices.sc's
+  			// GetPortraitMood()/PromptPortraitChoice()/DIcon usage. All 4
+  			// appearance options kept resident across room changes, same
+  			// as init()'s copy of this Load block above.
+  			Load(rsVIEW		PORTRAIT_VIEW_0)
+  			Load(rsVIEW		PORTRAIT_VIEW_1)
+  			Load(rsVIEW		PORTRAIT_VIEW_2)
+  			Load(rsVIEW		PORTRAIT_VIEW_3)
 
 			(super:newRoom(roomNum))
 			(if(< paramTotal 2)

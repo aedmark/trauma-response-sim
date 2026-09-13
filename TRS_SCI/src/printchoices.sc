@@ -48,7 +48,7 @@
 		// every page's layout identical regardless of which page it is.
 		= hIcon (DIcon:new())
 		(send hIcon:
-			view(PORTRAIT_VIEW)
+			view(PortraitViewForIndex(gPortraitChoice))
 			loop(GetPortraitMood())
 			cel(0)
 			setSize()
@@ -181,6 +181,151 @@
 		)
 		(if((<> btnPressed MORE_CHOICES) and (<> btnPressed BACK_CHOICES))
 			return(btnPressed)
+		)
+	)
+)
+/******************************************************************************/
+(procedure public (PromptPortraitChoice)
+	// Appearance picker, asked once per run from rm001.sc's init()
+	// alongside the other per-run setup choices (see gHardMode there).
+	// Portraits are fixed at PORTRAIT_ICON_WIDTHxPORTRAIT_ICON_HEIGHT
+	// (game.sh) -- too tall to stack PORTRAIT_COUNT of them vertically
+	// within the 200px screen the way PrintChoices stacks text buttons,
+	// so this lays them out horizontally instead, PORTRAIT_PER_PAGE at a
+	// time. Same page-loop/MORE_CHOICES/BACK_CHOICES pagination as
+	// PrintChoices above, just icon+button pairs in a row instead of a
+	// vertical list of text buttons.
+	(var hDialog, hDText, hIcon[PORTRAIT_PER_PAGE],
+		hChoiceButtons[PORTRAIT_PER_PAGE], hNavButtons[2], navBtnCnt,
+		navX, curX, curY, i, pageStart, pageCount, isFirstPage,
+		isLastPage, btnPressed, chosen)
+	= pageStart 0
+	(while(1)
+		= hDialog (Dialog:new())
+		(send hDialog:
+			window(gTheWindow)
+			name("PortraitD")
+		)
+		= hDText (DText:new())
+		(send hDText:
+			text("Choose your appearance:")
+			moveTo(4 4)
+			font(gDefaultFont)
+			setSize(PORTRAIT_DIALOG_WIDTH)
+		)
+		(send hDialog:add(hDText))
+		= curY (+ (send hDText:nsBottom) 6)
+
+		= pageCount (- PORTRAIT_COUNT pageStart)
+		(if(> pageCount PORTRAIT_PER_PAGE)
+			= pageCount PORTRAIT_PER_PAGE
+		)
+		= isFirstPage (== pageStart 0)
+		= isLastPage (== (+ pageStart pageCount) PORTRAIT_COUNT)
+
+		(for (= i 0) (< i pageCount) (++i)
+			= curX (+ PORTRAIT_MARGIN_X (* i (+ PORTRAIT_ICON_WIDTH PORTRAIT_GAP_X)))
+			= hIcon[i] (DIcon:new())
+			(send hIcon[i]:
+				view(PortraitViewForIndex(+ pageStart i))
+				loop(PORTRAIT_MOOD_NEUTRAL)
+				cel(0)
+				setSize()
+				moveTo(curX curY)
+			)
+			(send hDialog:add(hIcon[i]))
+
+			= hChoiceButtons[i] (DButton:new())
+			(send hChoiceButtons[i]:
+				text("Choose")
+				value(+ pageStart i)
+				font(SMALL_FONT)
+			)
+			SizeButtonToWidth(hChoiceButtons[i] PORTRAIT_ICON_WIDTH)
+			(send hChoiceButtons[i]:moveTo(curX (+ (send hIcon[i]:nsBottom) 4)))
+			(send hDialog:add(hChoiceButtons[i]))
+		)
+
+		// Row of nav buttons starts below whichever choice button (icon
+		// height is fixed, but SizeButtonToWidth's height isn't
+		// guaranteed identical to the neighbor's) ends up lower.
+		= curY (send hChoiceButtons[0]:nsBottom)
+		(for (= i 1) (< i pageCount) (++i)
+			(if(> (send hChoiceButtons[i]:nsBottom) curY)
+				= curY (send hChoiceButtons[i]:nsBottom)
+			)
+		)
+		= curY (+ curY 6)
+
+		= navBtnCnt 0
+		(if(not isFirstPage)
+			= hNavButtons[navBtnCnt] (DButton:new())
+			(send hNavButtons[navBtnCnt]:
+				text("Back")
+				value(BACK_CHOICES)
+				font(SMALL_FONT)
+			)
+			SizeButtonToWidth(hNavButtons[navBtnCnt] BUTTON_MAX_WIDTH)
+			(send hNavButtons[navBtnCnt]:moveTo(4 curY))
+			(send hDialog:add(hNavButtons[navBtnCnt]))
+			++navBtnCnt
+		)
+		(if(not isLastPage)
+			= navX 4
+			(if(> navBtnCnt 0)
+				= navX (+ (send hNavButtons[0]:nsRight) 6)
+			)
+			= hNavButtons[navBtnCnt] (DButton:new())
+			(send hNavButtons[navBtnCnt]:
+				text("More options...")
+				value(MORE_CHOICES)
+				font(SMALL_FONT)
+			)
+			SizeButtonToWidth(hNavButtons[navBtnCnt] BUTTON_MAX_WIDTH)
+			(send hNavButtons[navBtnCnt]:moveTo(navX curY))
+			(send hDialog:add(hNavButtons[navBtnCnt]))
+			++navBtnCnt
+		)
+
+		(send hDialog:
+			setSize()
+			center()
+		)
+		(if(< (send hDialog:nsTop) 2)
+			// Same overflow guard as PrintChoices -- a tall dialog can center
+			// to a negative nsTop, which renders as garbled screen content.
+			(send hDialog:moveTo( (send hDialog:nsLeft) 2 ))
+		)
+		(send hDialog:open(nwTITLE -1))
+		= btnPressed (send hDialog:doit(NULL))
+		(if(== btnPressed -1)
+			= btnPressed 0
+		)
+		= chosen -1
+		(for (= i 0) (< i pageCount) (++i)
+			(if(== btnPressed hChoiceButtons[i])
+				= chosen (send btnPressed:value)
+				break
+			)
+		)
+		(if(== chosen -1)
+			(for (= i 0) (< i navBtnCnt) (++i)
+				(if(== btnPressed hNavButtons[i])
+					= chosen (send btnPressed:value)
+					break
+				)
+			)
+		)
+		(send hDialog:dispose())
+
+		(if(== chosen MORE_CHOICES)
+			= pageStart (+ pageStart PORTRAIT_PER_PAGE)
+		)
+		(if(== chosen BACK_CHOICES)
+			= pageStart (- pageStart PORTRAIT_PER_PAGE)
+		)
+		(if((<> chosen MORE_CHOICES) and (<> chosen BACK_CHOICES))
+			return(chosen)
 		)
 	)
 )

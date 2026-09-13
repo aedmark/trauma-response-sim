@@ -125,7 +125,7 @@
 	// here was actually disposing Main.sc itself mid-run. Non-script
 	// resources loaded via Load(rsType ...) are never explicitly disposed
 	// anywhere in this codebase (see Main.sc's own Load(rsVIEW
-	// PORTRAIT_VIEW), never paired with a dispose call) -- left resident
+	// PORTRAIT_VIEW_0..3), never paired with a dispose call) -- left resident
 	// once touched, same as this.
 	Load(rsTEXT TEXT_UI)
 	GetFarText(TEXT_UI TEXT_UI_CASEFILES_TITLE @titleBuf)

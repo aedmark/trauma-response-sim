@@ -148,13 +148,37 @@
 
 // Player portrait: shown only inside PrintChoices' own dialog
 // (printchoices.sc, via GetPortraitMood() + a DIcon), not on any room
-// background. View 801 is a placeholder number (800 is already "Item -
-// Test Object"). Loop = mood: 0 neutral, 1 repression, 2 mask, 3 child
-// -- whichever stat is currently worst, once its danger value crosses
+// background. Loop = mood: 0 neutral, 1 repression, 2 mask, 3 child --
+// whichever stat is currently worst, once its danger value crosses
 // PORTRAIT_NEUTRAL_THRESHOLD (same comparison PickWorstStat() uses for
 // zone weighting). PORTRAIT_X/Y are unused (no background draw), left
 // defined in case one's wanted later.
-(define PORTRAIT_VIEW				801)
+//
+// PORTRAIT_VIEW_0..3: one full mood set (4 loops each, same layout as
+// the original single view) per selectable appearance. Chosen once per
+// run via PromptPortraitChoice() (printchoices.sc, called from
+// rm001.sc's init() alongside the other per-run setup choices) and
+// stored in gPortraitChoice (Main.sc); PortraitViewForIndex()
+// (mechanisms.sc) maps that index to the resource number below. 801-804
+// are placeholder numbers (800 is already "Item - Test Object").
+(define PORTRAIT_VIEW_0			801)
+(define PORTRAIT_VIEW_1			802)
+(define PORTRAIT_VIEW_2			803)
+(define PORTRAIT_VIEW_3			804)
+(define PORTRAIT_COUNT				4)
+(define PORTRAIT_DIALOG_WIDTH		280)
+// PromptPortraitChoice (printchoices.sc) layout: portraits are fixed at
+// 80x60 (too tall to stack more than ~2-3 vertically on a 200px screen
+// the way PrintChoices stacks text buttons), so it lays them out
+// horizontally instead, paginated PORTRAIT_PER_PAGE at a time using the
+// same MORE_CHOICES/BACK_CHOICES buttons PrintChoices uses.
+// MARGIN_X/GAP_X are chosen so 2 columns of ICON_WIDTH center evenly on
+// a 320px-wide screen (60 + 80 + 40 + 80 + 60 = 320).
+(define PORTRAIT_PER_PAGE			2)
+(define PORTRAIT_ICON_WIDTH		80)
+(define PORTRAIT_ICON_HEIGHT		60)
+(define PORTRAIT_MARGIN_X			60)
+(define PORTRAIT_GAP_X				40)
 (define PORTRAIT_X					4)
 (define PORTRAIT_Y					20)
 (define PORTRAIT_MOOD_NEUTRAL		0)

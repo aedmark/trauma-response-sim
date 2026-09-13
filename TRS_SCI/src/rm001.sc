@@ -29,6 +29,8 @@
 (use "dpath")
 (use "printchoices")
 (use "mechanisms")
+(use "casefiles")
+(use "casefilecategory")
 /******************************************************************************/
 (instance public rm001 of Rm
 	(properties
@@ -41,7 +43,8 @@
 	)
 	(method (init)
 		(var newSessionPromptBuf[72], newSessionTitleBuf[16],
-			standardBtnBuf[32], extendedBtnBuf[48], extendedTitleBuf[24])
+			standardBtnBuf[32], extendedBtnBuf[48], extendedTitleBuf[24],
+			viewCaseFiles, caseFileChoice)
 		// same in every script, starts things up
   		(super:init())
   		(self:setScript(RoomScript))
@@ -105,6 +108,52 @@
 			number(3)
 			loop(-1)
 			play()
+		)
+
+		// Appearance choice -- same reasoning as the Extended Therapy
+		// choice below: asked here (top of every run) rather than
+		// TitleScreen.sc, since "Restart Game" skips the title screen
+		// and jumps straight here. Unconditional (not gated behind
+		// gNgPlusUnlocked) -- every run gets to pick.
+		= gPortraitChoice PromptPortraitChoice()
+
+		// Case Files review -- offered to returning players (same
+		// gNgPlusUnlocked signal as the Extended Therapy choice below:
+		// they've survived a run before, so they have something to look
+		// back on) before jumping into a new run. Reuses ShowCaseFiles()/
+		// ShowCaseFileCategory() verbatim -- same two-stage Load/Dispose
+		// as menubar.sc's MENU_CASEFILES handler and rm002.sc's filing
+		// cabinet (CaseFiles.sc and CaseFileCategory.sc must never both
+		// be resident, see CaseFileCategory.sc's header). Plain string
+		// literals rather than TEXT_UI -- this prompt didn't exist when
+		// TEXT_UI's hand-authored-string entries were authored.
+		(if(gNgPlusUnlocked)
+			= viewCaseFiles PrintChoices(
+				"Welcome back. Would you like to review your case files before starting a new session?"
+				"Welcome Back"
+				290
+				NULL
+				"Yes" TRUE
+				"No" FALSE
+			)
+			(if(viewCaseFiles)
+				Load(rsSCRIPT CASEFILES_SCRIPT)
+				= caseFileChoice ShowCaseFiles()
+				DisposeScript(CASEFILES_SCRIPT)
+				(if(caseFileChoice)
+					Load(rsSCRIPT CASEFILECATEGORY_SCRIPT)
+					(if(== caseFileChoice 1)
+						ShowCaseFileCategory(CASEFILE_SURVIVAL_BASE CASEFILE_SURVIVAL_COUNT "Survival Endings")
+					)
+					(if(== caseFileChoice 2)
+						ShowCaseFileCategory(CASEFILE_FAILURE_BASE CASEFILE_FAILURE_COUNT "Failure Endings")
+					)
+					(if(== caseFileChoice 3)
+						ShowCaseFileCategory(CASEFILE_MECH_BASE CASEFILE_MECH_COUNT "Coping Mechanisms")
+					)
+					DisposeScript(CASEFILECATEGORY_SCRIPT)
+				)
+			)
 		)
 
 		// Extended Therapy mode choice -- asked here (top of every run)
