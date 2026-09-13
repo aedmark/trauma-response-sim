@@ -59,7 +59,8 @@ calls `EndTurn()` — increments the turn counter, clamps stats to
 [0,100], and either ends the run (any stat hits its failure bound, or
 `gTurn` exceeds `gMaxTurns`) or picks the next event.
 
-**Full choice counts restored, not yet compiled/tested.** `MAX_CHOICES=3`
+**Full choice counts restored — compiled, playtested, confirmed
+working.** `MAX_CHOICES=3`
 (a heap-safety scope cut from before the one-room-per-event rewrite) was
 removed — checked the original source first rather than assuming: 42 of
 196 events have exactly 3 choices, 150 have 4, 4 have 5 (the cap was
@@ -643,24 +644,15 @@ after editing the relevant `js/content*.js` source.
    confirmed the music as it plays in-game now is fine. Not an open
    task; noted here only so a future session doesn't reopen it
    unprompted.
-2. **Full choice counts (item above, "Full choice counts restored") —
-   not yet compiled or playtested.** All 196 rooms were regenerated with
-   every authored choice (746 total `Print()`/`ApplyChoiceEffects()`
-   cases across all rooms, confirmed matching 42×3+150×4+4×5 exactly)
-   and `PrintChoices` now paginates both forward ("More options...") and
-   backward ("Back"). Needs a real VM pass before this is done: compile
-   (expect the usual multi-round settling since `printchoices.sc` is
-   `(use)`d by all 196 rooms), then specifically playtest a 3-choice
-   event (should be pixel-identical to before, no Back/More buttons at
-   all), a 4-choice event, and — most important — "The Typo" and "The
-   Performance Review Buzzword" (WORK zone, the two 5-choice events with
-   actual prior dialog-overflow history) including: forcing/waiting for
-   the glitch roll to confirm it lands correctly on the final page, and
-   clicking "Back" from page 2 to confirm page 1 rebuilds correctly and
-   a choice picked after going back still applies the right effects. If
-   any event still overflows despite the per-page ceiling design, the
-   fallback is lowering `CHOICES_PER_PAGE` (game.sh) to 2 -- no
-   architecture change needed.
+2. ~~Full choice counts (item above, "Full choice counts restored")~~ —
+   **done.** Compiled and playtested by the user: 3-choice, 4-choice, and
+   both 5-choice events ("The Typo", "The Performance Review Buzzword" —
+   WORK zone, the two with actual prior dialog-overflow history) all
+   confirmed working, including the glitch roll landing correctly on the
+   final page and "Back" from page 2 correctly rebuilding page 1 with
+   effects still applying right after. No event overflowed the per-page
+   ceiling — `CHOICES_PER_PAGE` (game.sh) stayed at 3, the lower-to-2
+   fallback was never needed.
 3. **Nothing else is currently known-broken.** Everything else in
    "Current state" above is confirmed working by the user's own
    playtesting. If picking this project back up cold, a good sanity
