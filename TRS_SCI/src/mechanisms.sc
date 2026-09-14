@@ -32,6 +32,8 @@
 // the start of every run (rm001.sc's init()) or "seen" carries over.
 (local
 	gSeenEvent[TOTAL_EVENT_COUNT]
+	gPlayerName[PLAYER_NAME_BUF_LEN]	/* script-local, see SetPlayerName/GetPlayerName below */
+	gPlayerNameLoaded = FALSE			/* lazy-load sentinel, see EnsurePlayerNameLoaded below */
 )
 /******************************************************************************/
 (procedure public (ApplyChoiceEffects repDelta maskDelta childDelta tag)
@@ -340,5 +342,63 @@
 		return
 	)
 	GoToNextEvent()
+)
+/******************************************************************************/
+// Player name -- optional, persisted across sessions (matches the
+// original's "remembered for next time"), separate from TRSCASE.DAT/
+// Case Files since it's an unrelated piece of state. gPlayerName lives
+// here (script-local, not a Main.sc global) rather than following the
+// gCF0..107 scalar-per-char scheme, since every read/write call site
+// goes through these procedures, and this script is always resident
+// (never disposed) once loaded, so a script-local array is visible
+// everywhere it's actually needed.
+//
+// Lazily loaded from disk on first access (gPlayerNameLoaded) rather
+// than an explicit boot-time call from Main.sc's init(), deliberately:
+// Main.sc doesn't otherwise (use "mechanisms"), and mechanisms.sc
+// already (use)s "main" -- adding that would be a brand-new circular
+// pair (see the Main.sc<->CaseFiles.sc precedent elsewhere in this
+// codebase for why that's worth avoiding without being able to
+// test-compile the result first). rm001.sc already calls GetPlayerName
+// unconditionally at the top of every run, so that's the natural first
+// touch point each session.
+(procedure (EnsurePlayerNameLoaded)
+	(var hFile)
+	(if(gPlayerNameLoaded)
+		return
+	)
+	= gPlayerNameLoaded TRUE
+	= gPlayerName[0] 0
+	// fOPENCREATE, not fOPENFAIL -- see CaseFiles.sc's LoadCaseFiles()
+	// for why (this dialect's fOPENFAIL/fOPENCREATE are swapped from
+	// what their names suggest).
+	= hFile FOpen("TRSNAME.DAT" fOPENCREATE)
+	(if(not hFile)
+		return
+	)
+	FGets(@gPlayerName PLAYER_NAME_BUF_LEN hFile)
+	FClose(hFile)
+)
+/******************************************************************************/
+(procedure public (SetPlayerName buf)
+	// Persists immediately, same as MarkCaseFile -- there's no other
+	// moment this codebase reliably flushes state before a possible
+	// crash/close. Marks itself already-loaded so a SetPlayerName right
+	// after boot (there isn't one yet, but Reset Data calls this) never
+	// gets clobbered by a later lazy-load from a now-stale disk read.
+	(var hFile)
+	= gPlayerNameLoaded TRUE
+	StrCpy(@gPlayerName buf)
+	= hFile FOpen("TRSNAME.DAT" fCREATE)
+	(if(== hFile -1)
+		return
+	)
+	FPuts(hFile @gPlayerName)
+	FClose(hFile)
+)
+/******************************************************************************/
+(procedure public (GetPlayerName buf)
+	EnsurePlayerNameLoaded()
+	StrCpy(buf @gPlayerName)
 )
 /******************************************************************************/

@@ -1,17 +1,23 @@
 #!/usr/bin/env node
-// Generates the three category-scoped TRS_SCI/src/CaseFileDescriptions*.sc
-// files (Case Files viewer's "View" detail text) from the same source
-// data and flat index scheme as tools/gen-endings.js:
+// Generates the TRS_SCI/src/CaseFileDescriptions*.sc files (Case Files
+// viewer's "View" detail text) from the same source data and flat index
+// scheme as tools/gen-endings.js:
 //   0-71 survival (9 pools x 8), 72-101 failure (3 x 10), 102-106 mechanisms.
 // Must stay in index lockstep with CaseFileTitles.sc -- run
 // `node tools/verify-casefile-indices.js` after regenerating.
 //
-// One file per CATEGORY (not combined, not an arbitrary N-per-file split)
-// so a "View" click only loads the open category's data, not all 107
-// entries. Each file exports a differently-named procedure
-// (CaseFileDescriptionSurvival/Failure/Mechanisms) rather than three
-// same-named ones -- no precedent in this codebase for the same public
-// procedure name defined in multiple scripts used together.
+// Survival and Failure are chunked one file per POOL (matching
+// EndingSurvival0-8.sc/EndingFailure0-2.sc's own split), not one file per
+// whole category: a single combined Survival file (all 72 variants) compiled
+// to 7.24KB, comfortably bigger than any contiguous free block this
+// dialect's heap fragmentation reliably leaves after real play -- confirmed
+// live, "Out of heap space" on a View click even with CaseFileCategory.sc's
+// own MemoryInfo(miLARGESTPTR) guard reporting enough total headroom, just
+// not in one contiguous piece. Mechanisms (5 entries total) stays a single
+// file -- nowhere near that scale. Each file exports a differently-named
+// procedure (CaseFileDescriptionSurvivalN/FailureN/Mechanisms) rather than
+// same-named ones across files -- no precedent in this codebase for the
+// same public procedure name defined in multiple scripts used together.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -86,38 +92,36 @@ function writeCategoryFile({ filename, scriptConst, procName, cases, categoryLab
 	console.log(`Wrote ${cases.length} descriptions (${src.length} bytes) to TRS_SCI/src/${filename}`);
 }
 
-// --- Survival (0-71) ---
-const survivalCases = [];
+// --- Survival (0-71), one file per pool ---
 CONTENT_ENDINGS.forEach((pool, poolIndex) => {
 	const base = SURVIVAL_BASE + poolIndex * SURVIVAL_VARIANTS_PER_POOL;
-	pool.variants.forEach((v, i) => {
-		survivalCases.push(`\t\t(case ${base + i} return("${descText(v.desc)}"))`);
+	const cases = pool.variants.map((v, i) =>
+		`\t\t(case ${base + i} return("${descText(v.desc)}"))`
+	);
+	writeCategoryFile({
+		filename: `CaseFileDescriptionsSurvival${poolIndex}.sc`,
+		scriptConst: `CASEFILEDESCRIPTIONS_SURVIVAL${poolIndex}_SCRIPT`,
+		procName: `CaseFileDescriptionSurvival${poolIndex}`,
+		cases,
+		categoryLabel: `Survival ending (pool ${poolIndex})`,
+		rangeLabel: `${base}-${base + SURVIVAL_VARIANTS_PER_POOL - 1}`,
 	});
-});
-writeCategoryFile({
-	filename: 'CaseFileDescriptionsSurvival.sc',
-	scriptConst: 'CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT',
-	procName: 'CaseFileDescriptionSurvival',
-	cases: survivalCases,
-	categoryLabel: 'Survival ending',
-	rangeLabel: `${SURVIVAL_BASE}-${FAILURE_BASE - 1}`,
 });
 
-// --- Failure (72-101) ---
-const failureCases = [];
+// --- Failure (72-101), one file per pool ---
 FAILURE_STAT_ORDER.forEach((stat, statIndex) => {
 	const base = FAILURE_BASE + statIndex * FAILURE_VARIANTS_PER_POOL;
-	CONTENT_FAILURE_ENDINGS[stat].forEach((v, i) => {
-		failureCases.push(`\t\t(case ${base + i} return("${descText(v.desc)}"))`);
+	const cases = CONTENT_FAILURE_ENDINGS[stat].map((v, i) =>
+		`\t\t(case ${base + i} return("${descText(v.desc)}"))`
+	);
+	writeCategoryFile({
+		filename: `CaseFileDescriptionsFailure${statIndex}.sc`,
+		scriptConst: `CASEFILEDESCRIPTIONS_FAILURE${statIndex}_SCRIPT`,
+		procName: `CaseFileDescriptionFailure${statIndex}`,
+		cases,
+		categoryLabel: `Failure ending (${stat})`,
+		rangeLabel: `${base}-${base + FAILURE_VARIANTS_PER_POOL - 1}`,
 	});
-});
-writeCategoryFile({
-	filename: 'CaseFileDescriptionsFailure.sc',
-	scriptConst: 'CASEFILEDESCRIPTIONS_FAILURE_SCRIPT',
-	procName: 'CaseFileDescriptionFailure',
-	cases: failureCases,
-	categoryLabel: 'Failure ending',
-	rangeLabel: `${FAILURE_BASE}-${MECH_BASE - 1}`,
 });
 
 // --- Coping mechanisms (102-106) ---

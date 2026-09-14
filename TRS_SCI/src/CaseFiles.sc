@@ -101,6 +101,23 @@
 	= gNgPlusUnlocked TRUE
 )
 /******************************************************************************/
+(procedure public (ResetAllData)
+	// menubar.sc's Reset Data, confirm-gated there. Wipes every Case
+	// Files discovery flag and the Extended Therapy unlock (both ride on
+	// the same gCF0..107/TRSCASE.DAT array -- see game.sh), and re-saves
+	// so the file on disk reflects the wipe too, not just memory. Player
+	// name is separate state (SetPlayerName, mechanisms.sc); the caller
+	// resets that on its own.
+	(var i)
+	Load(rsSCRIPT CASEFILEACCESS_SCRIPT)
+	(for (= i 0) (< i CASEFILE_COUNT) (++i)
+		SetCaseFile(i 0)
+	)
+	SaveCaseFiles()
+	DisposeScript(CASEFILEACCESS_SCRIPT)
+	= gNgPlusUnlocked FALSE
+)
+/******************************************************************************/
 (procedure public (ShowCaseFiles)
 	// Category menu, reachable via the "Case Files" menu item (menubar.sc)
 	// or the ending room's filing cabinet. Hand-rolled vertical DButtons

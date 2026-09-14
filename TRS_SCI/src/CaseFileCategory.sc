@@ -32,6 +32,19 @@
  on real hardware. MemoryInfo(miLARGESTPTR) (see game.sh's
  CASEFILE_VIEW_MIN_HEAP) is checked before that Load() so this fails as
  a graceful in-fiction message instead of a hard interpreter crash.
+
+ That guard alone wasn't enough, though -- confirmed live: a raw "Out of
+ heap space" crash on a View click even with MemoryInfo(miLARGESTPTR)
+ reporting plenty of total headroom, because the combined
+ CaseFileDescriptionsSurvival.sc (all 72 variants in one script) compiled
+ to 7.24KB, bigger than any single contiguous free block this dialect's
+ fragmentation reliably leaves after real play, threshold or no
+ threshold. Survival/Failure descriptions are now split one script per
+ POOL (CASEFILEDESCRIPTIONS_SURVIVALn/FAILUREn_SCRIPT, game.sh) rather
+ than one per whole category -- CASEFILE_SURVIVAL_POOL_SIZE/
+ CASEFILE_FAILURE_POOL_SIZE (game.sh) is how the "View" handler below
+ picks which one a given flat index falls into. Mechanisms (5 entries
+ total) stays a single file -- nowhere near that scale.
  ******************************************************************************/
 (include "sci.sh")
 (include "game.sh")
@@ -42,13 +55,14 @@
 (use "controls")
 (use "casefileaccess")
 (use "casefiletitles")
-(use "casefiledescriptionssurvival")
-(use "casefiledescriptionsfailure")
-(use "casefiledescriptionsmechanisms")
+(use "casefiledescriptiondispatch")
 /******************************************************************************/
 // Script-level local, not per-call -- see CaseFiles.sc's own buf for why.
+// 2304 = the largest category's actual need (Survival, 72*32) -- was
+// 3424 (leftover from before this was rightsized), wasting 1120 bytes
+// on every single load of this script for nothing.
 (local
-	buf[3424]
+	buf[2304]
 )
 /******************************************************************************/
 (procedure public (ShowCaseFileCategory baseIndex count catTitle)
@@ -61,14 +75,29 @@
 		localIndex, flatIndex, discovered, descBuf[180], titleBuf[48],
 		discoveredFlags[72], promptBuf[48], viewBuf[8], closeBuf[8],
 		sealedTitleBuf[8], fragmentedTitleBuf[24])
-	// buf only needs the largest category's worth (Survival, 72*32=2304
-	// of its declared 3424 bytes). discoveredFlags[72] is a per-call local
-	// (well under the ~1KB known-safe size) -- caches each entry's
-	// GetCaseFile() result from this same loop so the View handler below
-	// never needs a second CaseFileAccess Load/Dispose cycle to re-ask it.
-	// Load/DisposeScript cycling doesn't reliably reclaim memory in this
-	// dialect (the original heap-fragmentation saga), so cutting a whole
-	// cycle out of the "View" hot path is worth more than it looks.
+	// buf is sized exactly to the largest category's need (Survival,
+	// 72*32=2304 -- see its own declaration above). discoveredFlags[72]
+	// is a per-call local (well under the ~1KB known-safe size) --
+	// caches each entry's GetCaseFile() result from this same loop so
+	// the View handler below never needs a second CaseFileAccess
+	// Load/Dispose cycle to re-ask it. Load/DisposeScript cycling
+	// doesn't reliably reclaim memory in this dialect (the original
+	// heap-fragmentation saga), so cutting a whole cycle out of the
+	// "View" hot path is worth more than it looks.
+
+	// Same heap-fragmentation guard as the "View" handler further down,
+	// but covering the Loads THIS list-building step itself needs
+	// (CaseFileTitles/CaseFileAccess, right below) -- a real, confirmed
+	// gap: a heap too fragmented even for these smaller scripts crashed
+	// with a raw "Out of heap space" fault here before ever reaching the
+	// already-guarded description-script Load.
+	(if(< MemoryInfo(miLARGESTPTR) CASEFILE_VIEW_MIN_HEAP)
+		Load(rsTEXT TEXT_UI)
+		GetFarText(TEXT_UI TEXT_UI_CASEFILE_FRAGMENTED_TITLE @fragmentedTitleBuf)
+		Print(TEXT_UI TEXT_UI_CASEFILE_FRAGMENTED_MSG #title @fragmentedTitleBuf)
+		return
+	)
+
 	(for (= i 0) (< i (* count 32)) (++i)
 		= buf[i] 0
 	)
@@ -184,27 +213,18 @@
 				GetFarText(TEXT_UI TEXT_UI_CASEFILE_FRAGMENTED_TITLE @fragmentedTitleBuf)
 				Print(TEXT_UI TEXT_UI_CASEFILE_FRAGMENTED_MSG #title @fragmentedTitleBuf)
 			)(else
-				// Load one description script at a time and copy its
-				// string out immediately, rather than holding
-				// titles+descriptions both resident through the whole
-				// Print() call. Which script to load is a flat,
-				// mutually-exclusive check keyed off baseIndex (always
-				// exactly one of the three category bases).
-				(if(== baseIndex CASEFILE_SURVIVAL_BASE)
-					Load(rsSCRIPT CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT)
-					StrCpy(@descBuf CaseFileDescriptionSurvival(flatIndex))
-					DisposeScript(CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT)
-				)
-				(if(== baseIndex CASEFILE_FAILURE_BASE)
-					Load(rsSCRIPT CASEFILEDESCRIPTIONS_FAILURE_SCRIPT)
-					StrCpy(@descBuf CaseFileDescriptionFailure(flatIndex))
-					DisposeScript(CASEFILEDESCRIPTIONS_FAILURE_SCRIPT)
-				)
-				(if(== baseIndex CASEFILE_MECH_BASE)
-					Load(rsSCRIPT CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT)
-					StrCpy(@descBuf CaseFileDescriptionMechanisms(flatIndex))
-					DisposeScript(CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT)
-				)
+				// Which description script to load lives in its own
+				// Load/Dispose-scoped file (CaseFileDescriptionDispatch.sc)
+				// rather than inline here -- see that file's header: this
+				// script (CaseFileCategory.sc) stays resident for the
+				// WHOLE time a category list is open, so a big dispatch
+				// switch living here was inflating that whole-session
+				// footprint, not just costing something at the instant of
+				// a View click. That alone was enough to crash opening
+				// the list, before View was ever clickable.
+				Load(rsSCRIPT CASEFILEDESCRIPTIONDISPATCH_SCRIPT)
+				LoadCaseFileDescription(baseIndex localIndex flatIndex @descBuf)
+				DisposeScript(CASEFILEDESCRIPTIONDISPATCH_SCRIPT)
 				// Title text is already sitting in buf's row ("N. Title",
 				// from the list-building loop above) -- no need for a
 				// second CaseFileTitles Load/Dispose cycle to re-fetch it.

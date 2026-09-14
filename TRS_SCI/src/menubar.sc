@@ -18,6 +18,7 @@
 (use "user")
 (use "casefiles")
 (use "casefilecategory")
+(use "mechanisms")
 /******************************************************************************/
 (class TheMenuBar of MenuBar
 	(properties
@@ -35,6 +36,7 @@
 				"Save Game`#5:"+
 				"Restore Game`#7:"+
 				"--! :"+
+				"Reset Data`^r:"+
 				"Quit`^q"
 		)
 		AddMenu(
@@ -111,10 +113,26 @@
 			(case MENU_RESTORE   
 				(send gGame:restore())
 			)
-			(case MENU_SAVE		  		    
+			(case MENU_SAVE
 				(send gGame:save())
 			)
-			(case MENU_QUIT		  	
+			(case MENU_RESETDATA
+				(if(Print(
+					  "This will permanently erase your Case Files record, Extended Therapy unlock, and saved name. This cannot be undone. Reset everything?"
+					  #title "Reset All Data"
+					  #font gDefaultFont
+					  #button " Reset " 1
+					  #button " Cancel " 0
+					)
+				   )
+					Load(rsSCRIPT CASEFILES_SCRIPT)
+					ResetAllData()
+					DisposeScript(CASEFILES_SCRIPT)
+					SetPlayerName("")
+					Print("All data has been reset." #title "Reset All Data" #font gDefaultFont)
+				)
+			)
+			(case MENU_QUIT
 				(if(Print(
 					  "Do you really want to quit?"
 					  #title "Quit"

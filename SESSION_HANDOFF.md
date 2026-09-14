@@ -146,21 +146,80 @@ a run before," not "has ever launched the game." Reuses
 Load/Dispose sequence menubar.sc's menu item and rm002.sc's filing
 cabinet already used.
 
-**Case Files "View" heap-fragmentation guard**: a real "Out of heap
-space" report came in from a player on real period hardware who'd played
-a 10-turn run then a 20-turn run in the same session before viewing an
-ending — the per-click Load/Dispose cost was already minimized (see
-Load/Dispose discipline above), so this was pure cross-run heap
-fragmentation, confirmed a real dialect limitation with no
-script-callable way to force a full interpreter restart mid-session.
-`CaseFileCategory.sc`'s "View" handler now checks
-`MemoryInfo(miLARGESTPTR)` (the largest *contiguous* free block, not
-just total free heap — already used for `Game.sc`/`Main.sc`'s debug
-memory display) against `CASEFILE_VIEW_MIN_HEAP` (game.sh, currently
-4096 — an estimate, not a measured value) before attempting the
-description-script Load, failing as a graceful in-fiction message
-(`TEXT_UI` entries 20-21) instead of a hard crash. Not yet re-tested
-against the original multi-run repro on real hardware.
+**Player name (optional) and Reset All Data — confirmed working.**
+Matches the original's "remembered for next time" name field and
+"⚠ Reset All Data" control. `mechanisms.sc` owns `SetPlayerName`/
+`GetPlayerName` (persisted to their own `TRSNAME.DAT`, lazily loaded on
+first access rather than a boot-time call from `Main.sc` — deliberately,
+to avoid a brand-new circular `(use ...)` pair with `Main.sc` that
+couldn't be test-compiled ahead of time). `rm001.sc` prompts for a name
+only when none is stored yet (not every run) via `PromptPlayerName`
+(`PlayerNamePrompt.sc`); `rm002.sc` prints "Played by X" on the ending
+screen, skipped if blank. `menubar.sc`'s new "Reset Data" File-menu item
+(confirm-gated like Restart/Quit already were) calls `CaseFiles.sc`'s
+new `ResetAllData()` (zeroes all 108 Case Files slots, which also covers
+the Extended Therapy unlock since it rides the same array) and blanks
+the player name. `PromptPlayerName` is deliberately its own Load/Dispose-
+scoped script, not living in the always-resident `printchoices.sc` where
+it was first written — see the heap-fragmentation entry right below for
+why that distinction turned out to matter a lot more than it looked.
+
+**Case Files "View" heap-fragmentation guard — real regression this
+session, fully root-caused and fixed, confirmed by the user on a fresh
+save.** The original guard (below) was already in place and had been
+reported working. Adding the player-name feature reopened it: a single
+10-round run on a brand-new save started reliably crashing with a raw
+"Out of heap space" fault trying to view *any* Case File — even Coping
+Mechanisms, a ~1.8KB file, which ruled out "description text too big" as
+the cause on its own. Root causes, found in order (each one a real fix,
+not a threshold tweak):
+1. `PromptPlayerName` (a full `Dialog`+`DText`+`DEdit`+`DButton` build)
+   had been added to `printchoices.sc`, which is permanently resident —
+   so its code size cost heap for the entire session, not just the one
+   moment (once, ever, until Reset Data) it's actually needed. Moved to
+   its own Load/Dispose-scoped `PlayerNamePrompt.sc`.
+2. The original guard's `CASEFILE_VIEW_MIN_HEAP` (4096) was checked
+   against real hardware readings and found to mean nothing next to
+   reality: `CaseFileDescriptionsSurvival.sc` — all 72 survival variants
+   in one script — compiled to **7.24KB**, comfortably bigger than any
+   single contiguous free block this dialect's fragmentation reliably
+   leaves after real play, regardless of what the threshold said. Fixed
+   the same way the ending-print scripts already were: `tools/gen-
+   casefile-descriptions.js` now emits one script per POOL (`CaseFile
+   DescriptionsSurvival0-8.sc`, `Failure0-2.sc`, ~2KB each) instead of
+   one per whole category. `CaseFileCategory.sc`'s "View" handler picks
+   the right one via `localIndex / CASEFILE_SURVIVAL_POOL_SIZE` (or
+   `_FAILURE_POOL_SIZE`, game.sh).
+3. Even after (2), a fresh save still crashed — this time before "View"
+   was even clickable, opening the category *list*. The per-pool
+   dispatch `switch` from fix (2) had been written directly inside
+   `CaseFileCategory.sc`, which — same mistake as (1) — stays resident
+   for the *entire* time a category list is open (loaded once by the
+   caller, disposed only when the list closes), so a 12-branch dispatch
+   switch living there permanently inflated that whole-session
+   footprint. Moved to its own `CaseFileDescriptionDispatch.sc`,
+   Load/Dispose-scoped tightly around just the instant of a View click.
+4. Still not quite enough margin: `CaseFileCategory.sc`'s own
+   script-level `buf` array was declared `[3424]` when the file's own
+   comment already said it only ever needs `2304` (`72*32`, the biggest
+   category) — 1120 bytes of pure waste on every single load, for
+   nothing. Shrunk to fit exactly.
+
+Diagnosis method worth remembering: **Alt+M (`Main.sc`'s built-in
+`MemoryInfo` debug hotkey) doesn't work once a modal dialog has input
+focus** — it's genuinely useless for reading heap state mid-crash inside
+a `Dialog:doit()` loop, which is exactly when you need it most. Real fix
+was temporary inline `Format()`+`Print()` calls dropped directly into
+the suspect code path (heap numbers shown as a plain message box, which
+fires in the normal flow with no keypress needed) at each checkpoint —
+this is what actually pinpointed all four causes above, in successive
+rounds, rather than guessing at threshold numbers. All temporary debug
+prints have been removed now that this is confirmed fixed.
+`CASEFILE_VIEW_MIN_HEAP` (4096) is unchanged and still just a guard
+against genuine cross-run/cross-session fragmentation (the original
+report's actual repro, 10-turn then 20-turn run back to back) — that
+part was never disproven, just insufficient on its own against the
+regressions above.
 
 **Stat display**: the status line (always visible, including over an
 open dialog) shows live percentages — `T.R.S.    REP: 40 % | MASK: 60 % |
@@ -214,9 +273,17 @@ bugs this project has hit:
   enough that Load/Dispose churn isn't worth it.
 - **Load/Dispose-scoped** (loaded right before use, disposed right
   after, every call site): `CaseFiles.sc`(107), `CaseFileAccess.sc`(136),
-  `CaseFileTitles.sc`(137), `CaseFileDescriptionsSurvival/Failure/
-  Mechanisms.sc`(138/139/140), `CaseFileCategory.sc`(141), all 12
-  `EndingSurvivalN`/`EndingFailureN` scripts (162-173). `CaseFiles.sc`
+  `CaseFileTitles.sc`(137), `CaseFileDescriptionsMechanisms.sc`(140),
+  `CaseFileCategory.sc`(141), `PlayerNamePrompt.sc`(142),
+  `CaseFileDescriptionsSurvival0-8.sc`(143-151),
+  `CaseFileDescriptionsFailure0-2.sc`(152-154),
+  `CaseFileDescriptionDispatch.sc`(155), all 12 `EndingSurvivalN`/
+  `EndingFailureN` scripts (162-173). Survival/Failure descriptions are
+  one script per POOL, not one per whole category, and the pool-dispatch
+  logic itself lives in its own tiny script rather than inline in
+  `CaseFileCategory.sc` -- see the heap-fragmentation entry above
+  ("Case Files 'View' heap-fragmentation guard") for why both of those
+  splits turned out to matter, not just be tidy. `CaseFiles.sc`
   (the category menu + persistence) and `CaseFileCategory.sc` (the
   actual per-category browsing/View screen) are never resident at the
   same time -- `ShowCaseFiles()` returns which category was picked
@@ -312,9 +379,16 @@ once touched, same as `Main.sc`'s own `Load(rsVIEW PORTRAIT_VIEW)`. The
 confirmed compiling and working end to end.
 - `CaseFiles.sc`(107, persistence + category menu) + `CaseFileCategory.sc`
   (141, the per-category browsing/View screen) + `CaseFileAccess.sc`(136)
-  + `CaseFileTitles.sc`(137) + `CaseFileDescriptions{Survival,Failure,
-  Mechanisms}.sc`(138-140) — split across this many files purely for
-  heap-residency reasons (see Load/Dispose discipline above).
+  + `CaseFileTitles.sc`(137) + `CaseFileDescriptionsSurvival0-8.sc`
+  (143-151, one per survival pool) + `CaseFileDescriptionsFailure0-2.sc`
+  (152-154, one per stat) + `CaseFileDescriptionsMechanisms.sc`(140,
+  single file — only 5 entries, nowhere near the scale that needed the
+  other two split) + `CaseFileDescriptionDispatch.sc`(155, picks/loads
+  the right one of the above for a given flat index) — split across this
+  many files purely for heap-residency reasons (see Load/Dispose
+  discipline above).
+- `PlayerNamePrompt.sc`(142) — optional name-entry dialog, Load/Dispose-
+  scoped around the one time per session (if any) it's actually shown.
 - `EndingSurvival0-8.sc`(162-170) / `EndingFailure0-2.sc`(171-173) — one
   file per ending pool, generated.
 - `rm001.sc`(1) — per-run reset, Extended Therapy mode-choice dialog,
@@ -329,8 +403,10 @@ confirmed compiling and working end to end.
 shared generator library (event-room emission, `sciString()`-based ASCII
 safety/escaping); `tools/gen-<zone>-events.js` ×6 are thin per-zone
 entry points; `tools/gen-endings.js` generates the ending-pool scripts;
-`tools/gen-casefile-descriptions.js` generates the three Case File
-description scripts; `tools/verify-casefile-indices.js` is a dev-time
+`tools/gen-casefile-descriptions.js` generates the Case File description
+scripts — one file per survival/failure POOL plus one single file for
+mechanisms (12 files total, not 3 — see "Case Files 'View' heap-
+fragmentation guard" above for why); `tools/verify-casefile-indices.js` is a dev-time
 check that the generated descriptions stay in index lockstep with
 `CaseFileTitles.sc`'s hand-written titles. All are idempotent — re-run
 after editing the relevant `js/content*.js` source.
@@ -659,20 +735,57 @@ after editing the relevant `js/content*.js` source.
    check is simply: does a standard run complete, does Extended
    Therapy unlock and work, does Case Files show discovered/sealed
    correctly and let you view a description, do both office hotspots
-   work, does the portrait picker show and let you pick — all confirmed
-   at least once, but a regression from an unrelated future change is
-   always possible.
+   work, does the portrait picker show and let you pick, does the game
+   prompt for a name on a fresh save and remember it after, does Reset
+   Data actually clear Case Files/NG+/the name — all confirmed at least
+   once, but a regression from an unrelated future change is always
+   possible.
 4. ~~SCI Companion IDE file dialogs not remembering the last folder~~ —
    **done.** Confirmed fixed by the user under Wine (all 18 general
    dialogs, plus `File > Open Game` after a second-round fix), upstreamed
    as icefallgames/SCICompanion#32. See Findings above for the full
    root-cause story if a similar Wine/comdlg32 issue ever comes up again.
+5. ~~Case Files "View" heap-exhaustion regression~~ — **done**, see
+   "Case Files 'View' heap-fragmentation guard" above for the full
+   four-cause story. Confirmed fixed on the repro that was actually
+   hit this session: a fresh save, one 10-round run, straight into Case
+   Files. **Not separately re-confirmed**: the *original* bug report's
+   own repro (a 10-turn run then a 20-turn run back to back, same
+   session) — worth another real pass if this area gets touched again,
+   since that's a heavier cumulative-fragmentation scenario than what
+   was actually retested here, even though the margin recovered this
+   session (per the debug readings taken mid-fix) looks meaningfully
+   healthier than before.
 
 ## Future ideas (not started, no urgency)
 
 - **Real portrait art for the 4 selectable options** — see "Player
   portrait" above; the picker itself is built and confirmed working,
-  currently with 80x60 placeholder art for all 4 options. Each
-  additional/replacement option needs the full 4-mood set (neutral/
-  repression/mask/child), matching the existing `portrait_*.bmp`
-  pattern in `TRS_SCI/art/`.
+  currently with 80x60 placeholder art for all 4 options. User is
+  handling this art pass solo. Each option needs the full 4-mood set
+  (neutral/repression/mask/child), matching the existing `portrait_*.bmp`
+  pattern in `TRS_SCI/art/`. Cel/view mapping (`game.sh`,
+  `PortraitViewForIndex()` in `mechanisms.sc`):
+
+  | Portrait option | View # |
+  |---|---|
+  | 1 (`gPortraitChoice`=0) | 801 |
+  | 2 (=1) | 802 |
+  | 3 (=2) | 803 |
+  | 4 (=3) | 804 |
+
+  Each of those 4 views needs the same 4 loops (one static 80x60 cel
+  per loop — shown as a `DIcon`, never animated, so no need for more
+  than one cel per loop):
+
+  | Loop # | Mood |
+  |---|---|
+  | 0 | Neutral |
+  | 1 | Repression |
+  | 2 | Mask |
+  | 3 | Child |
+
+  16 images total (4 options × 4 moods). Which mood shows at runtime is
+  already handled by `GetPortraitMood()` (whichever stat is currently
+  worst, once its danger value crosses `PORTRAIT_NEUTRAL_THRESHOLD`=60)
+  — nothing to do on the art side but fill in all 4 moods per option.

@@ -31,6 +31,7 @@
 (use "mechanisms")
 (use "casefiles")
 (use "casefilecategory")
+(use "playernameprompt")
 /******************************************************************************/
 (instance public rm001 of Rm
 	(properties
@@ -46,7 +47,7 @@
 			standardBtnBuf[32], extendedBtnBuf[48], extendedTitleBuf[24],
 			viewCaseFiles, caseFileChoice, caseFilesReviewPromptBuf[96],
 			caseFilesReviewTitleBuf[16], caseFilesReviewYesBuf[16],
-			caseFilesReviewNoBuf[16])
+			caseFilesReviewNoBuf[16], playerNameBuf[PLAYER_NAME_BUF_LEN])
 		// same in every script, starts things up
   		(super:init())
   		(self:setScript(RoomScript))
@@ -118,6 +119,23 @@
 		// and jumps straight here. Unconditional (not gated behind
 		// gNgPlusUnlocked) -- every run gets to pick.
 		= gPortraitChoice PromptPortraitChoice()
+
+		// Player name -- optional, asked only the very first time (an
+		// empty stored name), not every run: matches the original's
+		// "remembered for next time" rather than re-nagging on every
+		// restart/back-to-back run. Reset Data (menubar.sc) blanks the
+		// stored name, which naturally re-triggers this next run.
+		// PromptPlayerName is Load/Dispose-scoped, not always resident --
+		// see PlayerNamePrompt.sc's header for why (a real, confirmed
+		// heap-fragmentation regression from an earlier version of this
+		// that put it in always-resident printchoices.sc instead).
+		GetPlayerName(@playerNameBuf)
+		(if(not StrLen(@playerNameBuf))
+			Load(rsSCRIPT PLAYERNAMEPROMPT_SCRIPT)
+			PromptPlayerName(@playerNameBuf)
+			DisposeScript(PLAYERNAMEPROMPT_SCRIPT)
+			SetPlayerName(@playerNameBuf)
+		)
 
 		// Case Files review -- offered to returning players (same
 		// gNgPlusUnlocked signal as the Extended Therapy choice below:

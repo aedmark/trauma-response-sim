@@ -40,22 +40,22 @@
 (define TITLESCREEN_SCRIPT	800)
 (define ENDING_ROOM			2)
 (define PRINTCHOICES_SCRIPT	100)
-// 101-105, 108-132, 138-161: freed. Was the old per-zone Load/
-// DisposeScript dispatcher+chunk architecture, replaced by one room per
-// event (WORK_ROOM_BASE etc. below) after confirmed SCI0 heap
-// fragmentation -- see SESSION_HANDOFF.md. Left unused, not reassigned.
+// 101-105, 108-132: freed. Was the old per-zone Load/DisposeScript
+// dispatcher+chunk architecture, replaced by one room per event
+// (WORK_ROOM_BASE etc. below) after confirmed SCI0 heap fragmentation --
+// see SESSION_HANDOFF.md. Left unused, not reassigned. (138-161 was also
+// briefly listed here as freed; that's stale -- 138-154 are now actively
+// used below, see CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT onward.)
 (define MECHANISMS_SCRIPT	106)
 (define CASEFILES_SCRIPT	107)
 // 133-135: freed (old bundled ending-content scripts; see
 // ENDINGSURVIVAL*/ENDINGFAILURE* below).
 (define CASEFILEACCESS_SCRIPT	136)
 (define CASEFILETITLES_SCRIPT	137)
-// Per-category Case File descriptions (tools/gen-casefile-descriptions.js),
-// Load/Dispose-scoped like CASEFILETITLES_SCRIPT. One script per category
-// (not one combined file) so opening a category only loads that
-// category's entries, not all 107.
-(define CASEFILEDESCRIPTIONS_SURVIVAL_SCRIPT		138)
-(define CASEFILEDESCRIPTIONS_FAILURE_SCRIPT		139)
+// Coping mechanism descriptions (tools/gen-casefile-descriptions.js) --
+// only 5 entries total, nowhere near the scale that needed the
+// per-POOL split below, so this one stays a single Load/Dispose-scoped
+// file like CASEFILETITLES_SCRIPT.
 (define CASEFILEDESCRIPTIONS_MECHANISMS_SCRIPT		140)
 // ShowCaseFileCategory() itself -- split out of CaseFiles.sc so browsing
 // a category (which repeatedly loads description scripts on top of it)
@@ -64,6 +64,46 @@
 // not preemptive: "Out of heap space" was hit live on real hardware even
 // after the description-script split above.
 (define CASEFILECATEGORY_SCRIPT	141)
+
+// Load/Dispose-scoped (not always resident) -- see PlayerNamePrompt.sc's
+// own header for why this one specifically had to move out of
+// printchoices.sc after a real, confirmed heap-fragmentation regression.
+(define PLAYERNAMEPROMPT_SCRIPT	142)
+
+// Survival/Failure Case File descriptions, one script per POOL rather
+// than one per whole category (tools/gen-casefile-descriptions.js) --
+// the combined Survival file (all 72 variants) compiled to 7.24KB,
+// comfortably bigger than any contiguous free block this dialect's heap
+// fragmentation reliably leaves after real play. Confirmed live: a raw
+// "Out of heap space" crash on a View click even with
+// CaseFileCategory.sc's own MemoryInfo(miLARGESTPTR) guard reporting
+// enough total headroom -- just not in one contiguous piece. Chunking
+// per pool (matching EndingSurvival0-8.sc/EndingFailure0-2.sc's own
+// split) brings each file down to roughly 1/8th to 1/3rd the size.
+// CASEFILE_SURVIVAL_POOL_SIZE/CASEFILE_FAILURE_POOL_SIZE (below) is how
+// CaseFileCategory.sc picks which one of these to Load() for a given
+// flat index.
+(define CASEFILEDESCRIPTIONS_SURVIVAL0_SCRIPT		143)
+(define CASEFILEDESCRIPTIONS_SURVIVAL1_SCRIPT		144)
+(define CASEFILEDESCRIPTIONS_SURVIVAL2_SCRIPT		145)
+(define CASEFILEDESCRIPTIONS_SURVIVAL3_SCRIPT		146)
+(define CASEFILEDESCRIPTIONS_SURVIVAL4_SCRIPT		147)
+(define CASEFILEDESCRIPTIONS_SURVIVAL5_SCRIPT		148)
+(define CASEFILEDESCRIPTIONS_SURVIVAL6_SCRIPT		149)
+(define CASEFILEDESCRIPTIONS_SURVIVAL7_SCRIPT		150)
+(define CASEFILEDESCRIPTIONS_SURVIVAL8_SCRIPT		151)
+(define CASEFILEDESCRIPTIONS_FAILURE0_SCRIPT		152)
+(define CASEFILEDESCRIPTIONS_FAILURE1_SCRIPT		153)
+(define CASEFILEDESCRIPTIONS_FAILURE2_SCRIPT		154)
+
+// Picks and Loads whichever of the above a given flat index needs, kept
+// in its own Load/Dispose-scoped file rather than inline in
+// CaseFileCategory.sc -- see CaseFileDescriptionDispatch.sc's own header
+// for why that mattered: CaseFileCategory.sc stays resident for the
+// whole time a category list is open, so a big dispatch switch living
+// there was a confirmed real regression (crashed opening the list
+// itself, before "View" was ever clickable).
+(define CASEFILEDESCRIPTIONDISPATCH_SCRIPT		155)
 
 // One script per ending pool -- rm002.sc only ever needs the one pool a
 // given ending fires from; bundling multiple pools per file caused heap
@@ -102,6 +142,16 @@
 (define CASEFILE_MECH_BASE			102)
 (define CASEFILE_NGPLUS			107)
 
+// Player name -- optional, persisted to its own file (TRSNAME.DAT,
+// mechanisms.sc), separate from Case Files. Asked once (rm001.sc, only
+// when blank) rather than every run; menubar.sc's Reset Data clears it
+// back to blank. PLAYER_NAME_BUF_LEN is MAX_LEN + 1 for the null
+// terminator (kept a separate literal, not an in-place "+1" expression,
+// to match how other buffer sizes in this codebase are declared).
+(define PLAYER_NAME_MAX_LEN	16)
+(define PLAYER_NAME_BUF_LEN	17)
+(define PLAYER_NAME_DIALOG_WIDTH	220)
+
 // Category ranges for ShowCaseFiles()'s category menu (CaseFiles.sc) --
 // same 0-71/72-101/102-106 layout as above, named so CaseFiles.sc
 // doesn't hardcode raw index/count numbers.
@@ -110,6 +160,14 @@
 (define CASEFILE_FAILURE_BASE		72)
 (define CASEFILE_FAILURE_COUNT		30)
 (define CASEFILE_MECH_COUNT		5)
+
+// Variants per pool, for CaseFileCategory.sc's "View" handler to pick
+// which CASEFILEDESCRIPTIONS_SURVIVALn/FAILUREn_SCRIPT a given flat index
+// falls into (index / POOL_SIZE). Matches
+// tools/gen-casefile-descriptions.js's own SURVIVAL_VARIANTS_PER_POOL/
+// FAILURE_VARIANTS_PER_POOL.
+(define CASEFILE_SURVIVAL_POOL_SIZE	8)
+(define CASEFILE_FAILURE_POOL_SIZE	10)
 
 // T.R.S. per-zone event counts, for GoToNextEvent()'s zone/event picker
 // (mechanisms.sc).
@@ -291,6 +349,9 @@
 (define TEXT_UI_CASEFILES_REVIEW_NO_BTN	19)
 (define TEXT_UI_CASEFILE_FRAGMENTED_MSG	20)
 (define TEXT_UI_CASEFILE_FRAGMENTED_TITLE	21)
+(define TEXT_UI_NAME_PROMPT_LABEL			22)
+(define TEXT_UI_NAME_PROMPT_TITLE			23)
+(define TEXT_UI_NAME_PROMPT_OK_BTN			24)
 
 // Heap-fragmentation guard for CaseFileCategory.sc's "View" handler (see
 // its own header for the original heap-exhaustion saga this continues).
@@ -328,6 +389,7 @@
 (define MENU_RESTART		$201)
 (define MENU_SAVE			$202)
 (define MENU_RESTORE		$203)
+(define MENU_RESETDATA		$204)
 (define MENU_QUIT			$205)
 (define MENU_PAUSE			$301)
 (define MENU_INVENTORY		$302)

@@ -48,6 +48,7 @@
 		west 0
 	)
 	(method (init)
+		(var playerNameBuf[PLAYER_NAME_BUF_LEN], playedByBuf[32])
 		(super:init())
 		(self:setScript(RoomScript))
 
@@ -64,6 +65,15 @@
 		(send gEgo:hide())
 
 		(self:printEnding())
+
+		// "Played by <name>" -- matches the original's end-screen credit,
+		// skipped entirely if blank (README: "Leave it blank and neither
+		// format mentions it").
+		GetPlayerName(@playerNameBuf)
+		(if(StrLen(@playerNameBuf))
+			Format(@playedByBuf "Played by %s" @playerNameBuf)
+			Print(@playedByBuf #font gDefaultFont)
+		)
 	)
 	(method (printEnding)
 		// Decides which ending POOL applies; each PrintFailureEndingN()/
