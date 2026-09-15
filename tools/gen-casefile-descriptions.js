@@ -22,9 +22,10 @@
 const fs = require('fs');
 const path = require('path');
 const { sciString } = require('./lib/sci-string');
+const { sciSrcDir } = require('./lib/sci-paths');
 
 const repoRoot = path.resolve(__dirname, '..');
-const outDir = path.join(repoRoot, 'TRS_SCI/src');
+const outDir = sciSrcDir;
 
 const endingsSrc = fs.readFileSync(path.join(repoRoot, 'js/content-endings.js'), 'utf8');
 const { CONTENT_FAILURE_ENDINGS, CONTENT_ENDINGS } = new Function(

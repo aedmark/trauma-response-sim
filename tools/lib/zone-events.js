@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const { sciString } = require('./sci-string');
+const { sciSrcDir } = require('./sci-paths');
 
 const DESC_WIDTH = 290; // DText width (px) passed to PrintChoices; kernel TextSize() wraps within it, so widening is safe as long as it stays under the 320px screen (DText starts at x=4)
 
@@ -142,7 +143,7 @@ ${cases}
  */
 function generateZoneEvents(opts) {
 	const srcJsPath = path.join(opts.repoRoot, opts.srcJsRelPath);
-	const outDir = path.join(opts.repoRoot, 'TRS_SCI', 'src');
+	const outDir = sciSrcDir;
 
 	const src = fs.readFileSync(srcJsPath, 'utf8');
 	const events = new Function(src + `\nreturn ${opts.srcJsGlobal};`)();

@@ -9,6 +9,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { sciSrcDir } = require('./lib/sci-paths');
 
 const repoRoot = path.resolve(__dirname, '..');
 
@@ -27,7 +28,7 @@ CONTENT_ENDINGS.forEach(pool => pool.variants.forEach(v => expectedTitles.push(v
 FAILURE_STAT_ORDER.forEach(stat => CONTENT_FAILURE_ENDINGS[stat].forEach(v => expectedTitles.push(v.title)));
 MECH_TAG_ORDER.forEach(tag => expectedTitles.push(CONTENT_MECHANISMS[tag].name));
 
-const titlesSrc = fs.readFileSync(path.join(repoRoot, 'TRS_SCI/src/CaseFileTitles.sc'), 'utf8');
+const titlesSrc = fs.readFileSync(path.join(sciSrcDir, 'CaseFileTitles.sc'), 'utf8');
 const actualTitles = [];
 const caseRe = /\(case (\d+) return\("((?:[^"\\]|\\.)*)"\)\)/g;
 let m;
