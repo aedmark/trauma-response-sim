@@ -235,6 +235,105 @@ Both hit-tested via hand-estimated screenshot rectangles
 (`CABINET_X1/Y1/X2/Y2`, `COMPUTER_X1/Y1/X2/Y2` in `game.sh`) — confirmed
 working, rectangles never needed adjustment.
 
+**Text parser ("examine" flavor text, ending room only) — confirmed
+working end to end after several real, non-obvious bugs.** The stock
+SCI0 text parser existed in this project as pure dead scaffolding
+before this session (`rm001.sc`/`rm002.sc` each had a single bare
+`Said('look')` that could never actually fire — see below). Scope,
+confirmed with the user directly: pure atmosphere, no stat/state
+effects; `look`/`examine`/`x` only; active **only** in `rm002.sc`
+(`ENDING_ROOM`), not during the 196 per-turn event rooms. Eight nouns
+wired up so far (computer, cabinet, chair, desk, clock, door,
+mirror/me/self, plus a bare-verb room description and a generic
+"nothing special" catch-all for any other recognized noun) — all in
+`rm002.sc`'s `RoomScript:handleEvent`, no separate Load/Dispose-scoped
+script needed (unlike the Case Files content below, this can only ever
+fire while `rm002.sc` itself is already resident, so there's no
+"extra time loaded" to save by splitting it out; revisit only if this
+noun list grows large enough to bloat the room's own compiled size).
+Real bugs found and fixed, in order:
+1. **The parser input line never appeared at all.** `ProgramControl()`
+   (called by `rm002.sc`'s `init()`, same as every other room) disables
+   *both* `canControl` (ego movement) and `canInput` (the parser's
+   `getInput()`/`Parse()` path, gated in `User.sc`'s `handleEvent`) —
+   confirmed via `User.sc`/`Main.sc` source, not guessed. Fixed by
+   calling `(User:canInput(TRUE))` right after `ProgramControl()` in
+   `rm002.sc`'s `init()`, leaving `canControl` off so ego still can't be
+   walked — safe to leave on permanently since `gProgramControl` (the
+   flag that would make `Game:doit()` stomp it back to `FALSE` every
+   frame, `Main.sc:340`) is never set `TRUE` anywhere in this codebase.
+   Needed adding `(use "user")` to `rm002.sc` (it never referenced
+   `User` directly before) — compiler error "`User` must be an instance
+   or class" otherwise; no new circular `(use...)` risk, since `User.sc`
+   doesn't use anything that loops back to `rm002`.
+2. **A one-time, per-process keyboard case-scrambling bug** (typed text
+   echoed with random capitalization) that also briefly appeared on the
+   *pre-existing* player-name `DEdit` dialog once the parser had been
+   used earlier in the same running process — this looked at first like
+   a regression caused by the new feature, but a full DOSBox-X/Wine
+   process restart came back clean on both. Confirmed environment/
+   interpreter-level (first-ever invocation of `EditPrint`/`Parse` in
+   this game's life triggering some transient keyboard-state issue),
+   not a real code regression — no code change involved.
+3. **SCI Companion's own Vocabulary-editor "New word" button doesn't
+   work under Wine** — confirmed in its source
+   (`SCICompanionLib/Src/MFCViews/VocabView.cpp`'s `OnNewWord`/
+   `OnRename`, both `ID_VOCAB_NEWWORD` and F2-rename): it inserts a
+   placeholder row and calls `CListCtrl::EditLabel()` for in-place
+   rename, which silently never gains focus/shows under Wine (same
+   general class of bug as the earlier `CPersistentFileDialog` fix —
+   a real modal dialog tends to be Wine-safe, an in-place edit box
+   is not). **Workaround, not a code fix**: add new words from the
+   **Script Editor** instead — select the word where it already
+   appears in a `.sc` file, right-click → "Add as..." → pick the word
+   class. That path (`CScriptView::_OnAddAs` →
+   `Vocab000::AddNewWord`) never touches the broken in-place editor.
+4. **Word-class completeness matters even for words the compiler
+   accepts.** Compiling a `Said()` string only checks that the word
+   *exists* in `vocab.000` — it does not validate that the word has
+   whatever class the intended sentence structure actually needs. The
+   real, authoritative class list (source: `Vocab000.h`/`.cpp`, NOT the
+   docs' vaguer "nine classes" claim) is: Number, Punctuation,
+   Conjunction, Association, Preposition, Article, Qualifying
+   Adjective, Relative Pronoun, **Noun**, **Indicative Verb**,
+   **Adverb**, **Imperative Verb** — notably **there is no generic
+   "Verb" class**, only Imperative (command form, e.g. "look", "x") vs.
+   Indicative. Two words added via the Script Editor workaround above
+   had real gaps: `clock` had been added with **no class at all**;
+   `x` had been given a plain "Verb" (doesn't exist) instead of
+   **Imperative Verb** — both fixed directly in the Vocabulary editor
+   (right-click the word → check the correct class; that's a context-
+   menu checkbox action, not the broken in-place editor, so it's
+   Wine-safe). Pre-existing nouns (computer, cabinet, etc.) were
+   already correctly classified — confirmed by the user directly in
+   the editor, not assumed.
+5. **Two idioms straight from SCI Companion's own `Said()`
+   documentation (`Help/Kernels/Said.html`) turned out not to work in
+   this build, and both had to be replaced with simpler, self-contained
+   patterns instead of trusting the docs literally:**
+   - `Said('[/!*]')` (the docs' own "bare verb, nothing else" idiom) —
+     `!` isn't actually in the same docs' own operator table (`, & / (
+     ) [ ] # < >`), just used undefined in that one example. Confirmed
+     dead via inline debug `Print()`.
+   - The docs' split pattern — one non-claiming outer check
+     (`Said('verb>')`) feeding separate leading-slash continuation
+     checks (`Said('/noun')`) against the same parsed sentence — also
+     never matched a noun in this build, even with vocab classes
+     confirmed correct. Replaced with one complete, self-contained
+     `Said('look,examine,x/noun')` pattern per branch, tried in a flat
+     early-return sequence; per the kernel docs a *failed* `Said()`
+     doesn't consume anything (only a successful match does), so `>`
+     isn't needed at all this way. This is now the confirmed-working
+     shape — see `rm002.sc`'s `RoomScript:handleEvent`.
+   Diagnosis method: same as the Case Files heap saga below — Alt+M
+   doesn't help here either (no heap question involved), but inline
+   debug `Print()` checkpoints (confirming step-by-step whether the
+   event reached the room at all, whether it was pre-claimed, and
+   whether each Said() layer actually matched) is what actually
+   isolated this, across several rounds, rather than guessing at
+   syntax from documentation alone. All temp debug prints removed now
+   that this is confirmed fixed.
+
 **Background music**: a General MIDI driver (`gm.drv`) is wired up and a
 real MIDI file has been imported into sound resource 3 (`n003=BGM`),
 looping continuously via `rm001.sc`. **Still has an open, unresolved
@@ -595,13 +694,64 @@ after editing the relevant `js/content*.js` source.
   rendering (confirmed: an em dash ate an entire word). `sciString()`
   transliterates common typographic Unicode (em/en dash, curly quotes,
   ellipsis) and throws on anything else unmapped.
-- **No confirmed precedent anywhere in this codebase for chained
-  `(if...)(else...)` 3+ branches deep**, nor for `switch` on anything but
-  a plain variable (never a function-call expression directly). Prefer a
-  flat sequence of independent single-branch `if`s with early
-  `return`/`break`, or assign to a local first before switching on it.
-  Also no precedent for `and`-chains longer than 4 terms — split into
-  nested 2-term chains instead of extending further.
+- **Chained `(if...)(else...)` 3+ branches deep: still avoid it on
+  principle, but correcting an earlier over-claim in this same file** —
+  a 9-deep `(if)(else (if)(else ...))` chain in `rm002.sc`'s parser
+  dispatch was suspected as the cause of later branches silently never
+  running, and got rewritten flat as a precaution. It compiled fine
+  either way, and flattening it alone did **not** actually fix the bug
+  (confirmed: same dead-branch symptom persisted after the rewrite) —
+  the real causes turned out to be the separate `Said()`-syntax and
+  vocab-classification issues documented below. So deep if/else nesting
+  was never actually proven broken here, just replaced out of caution.
+  Still worth avoiding — this dialect's if/else is Lisp-like macro sugar
+  with no other precedent past one level anywhere in this codebase (see
+  `printEnding()`/`CaseFiles.sc`'s `ShowCaseFiles()` for the established
+  flat, early-return style) — just don't cite this specific incident as
+  proof it's broken; it wasn't the actual bug. Same "no real precedent,
+  stay flat" reasoning still applies to `switch` (only ever on a plain
+  variable, never a function-call expression directly) and to
+  `and`-chains (no precedent past 4 terms).
+- **Two `Said()` idioms straight from SCI Companion's own documentation
+  (`Help/Kernels/Said.html`) don't work in this build — confirmed via
+  inline debug `Print()`, not assumed from the docs alone.** (1)
+  `Said('[/!*]')`, the docs' own "bare verb, nothing else" example — `!`
+  isn't in the same docs' operator table (`, & / ( ) [ ] # < >`), just
+  used undefined in that one spot. (2) The docs' split pattern of one
+  non-claiming outer check (`Said('verb>')`) feeding separate
+  leading-slash continuation checks (`Said('/noun')`) against the same
+  parsed sentence — never matched a noun here, even with vocab word
+  classes confirmed correct first. **Working replacement**: skip both
+  idioms entirely. Write one complete, self-contained pattern per
+  branch (`Said('verbgroup/noun')`), tried as a flat sequence of
+  independent `if`s with early `return` on match — per the kernel docs
+  a *failed* `Said()` doesn't consume/claim anything (only a successful
+  match does), so no `>` is needed for this shape at all. See `rm002.sc`'s
+  `RoomScript:handleEvent` for the confirmed-working shape.
+- **A word compiling successfully in a `Said()` string only proves it
+  exists in `vocab.000` — not that it has the word class the sentence
+  structure actually needs.** The real class list (from
+  `Vocab000.h`/`.cpp` source, more precise than the docs' vaguer "nine
+  classes"): Number, Punctuation, Conjunction, Association, Preposition,
+  Article, Qualifying Adjective, Relative Pronoun, Noun, **Indicative
+  Verb**, Adverb, **Imperative Verb** — there is no plain "Verb" class,
+  only Imperative (command form: "look", "x") vs. Indicative. A newly
+  added word can silently have zero classes or the wrong one and still
+  compile fine; check/fix via the Vocabulary editor's right-click class
+  checkboxes (a normal context menu, Wine-safe — unlike "New word"
+  below).
+- **SCI Companion's Vocabulary editor "New word" button (and F2-rename)
+  don't work under Wine** — confirmed in source
+  (`SCICompanionLib/Src/MFCViews/VocabView.cpp`'s `OnNewWord`/
+  `OnRename`): both call `CListCtrl::EditLabel()` for in-place rename,
+  which never gains focus/shows under Wine (same class of bug as the
+  earlier `CPersistentFileDialog` fix — real modal dialogs tend to be
+  Wine-safe, in-place edit boxes are not). **Workaround**: add new words
+  from the **Script Editor** instead — select the word where it already
+  appears in a `.sc` file, right-click → "Add as..." → pick the word
+  class. Still assign/verify the class afterward in the Vocabulary
+  editor per the point above — the Script Editor path can leave a word
+  with no class at all if you don't pick one.
 - **`paramTotal` counts every argument the caller passed, including ones
   already bound to named parameters before a trailing rest-array
   parameter.** Subtract the named-parameter count from `paramTotal`
