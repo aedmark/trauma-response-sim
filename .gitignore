@@ -1,5 +1,5 @@
 # User's own working art/audio source folder -- not part of the
-# compiled game's source, managed manually. See SESSION_HANDOFF.md.
+# compiled game's source, managed manually. See docs/archive/SCI_PORT_HANDOFF_2026_09.md.
 TRS_SCI/art/
 
 # Zipped distribution builds, regenerated as needed (name varies --

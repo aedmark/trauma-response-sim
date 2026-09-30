@@ -5,7 +5,7 @@
 // for the choice dialog and ApplyChoiceEffects/ApplyGlitch
 // (TRS_SCI/src/mechanisms.sc) for stat effects.
 //
-// One room per event (see game.sh and SESSION_HANDOFF.md for the full
+// One room per event (see game.sh and docs/archive/SCI_PORT_HANDOFF_2026_09.md for the full
 // history): this replaces an earlier design where each zone was a
 // dispatcher script Load()ing/DisposeScript()ing shared "chunk" scripts of
 // ~8-9 events each. That worked well enough to get far into a run, but hit

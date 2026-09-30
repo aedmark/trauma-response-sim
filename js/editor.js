@@ -1061,7 +1061,12 @@ function handleImportFile(event) {
     reader.onload = () => {
         try {
             const parsed = JSON.parse(reader.result);
-            if (!isValidContentPack(parsed)) throw new Error("Missing required fields.");
+            const problems = contentPackProblems(parsed);
+            if (problems.length) {
+                const shown = problems.slice(0, 10);
+                if (problems.length > shown.length) shown.push(`...and ${problems.length - shown.length} more.`);
+                throw new Error("\n\n" + shown.join("\n"));
+            }
             editorDraft = parsed;
             renderEditor();
             logEditorStatus("Pack imported. Review it below, then Save All Changes to apply.");

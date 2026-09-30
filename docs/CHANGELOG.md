@@ -2,6 +2,12 @@
 
 All notable changes to the Trauma Response Simulator (formerly Unresolved Childhood Trauma Simulator) are documented here.
 
+## Unreleased
+
+### Fixed
+- **Case Files no longer treats text from a content pack as HTML.** A shared pack could put markup (including a script) in a mechanism or ending name and have it run when that file was opened in Case Files; it now shows as plain text.
+- **Importing a broken content pack now says what's wrong instead of failing mid-run.** The editor's import lists each problem (an event with no choices, an unknown tag, an effect written as text instead of a number). A saved pack with one of these problems is ignored in favour of the default content rather than breaking the game.
+
 ## [4.17.16] - 2026-09-08
 
 ### Changed

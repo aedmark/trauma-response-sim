@@ -1,7 +1,7 @@
 // Shared string-escaping pass for any T.R.S. content generator emitting
 // SCI0 string literals. Extracted out of zone-events.js when a second
 // generator (gen-endings.js) needed the exact same logic -- this
-// encodes several real, hard-won fixes (see SESSION_HANDOFF.md): a
+// encodes several real, hard-won fixes (see docs/archive/SCI_PORT_HANDOFF_2026_09.md): a
 // non-ASCII byte isn't a missing-glyph placeholder, it's read as a raw
 // control byte and corrupts the dialog (confirmed in-game with an em
 // dash eating a word); embedded real newlines/tabs need converting to

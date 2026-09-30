@@ -99,9 +99,24 @@ function findVisibleOverlay(excludeId) {
     return null;
 }
 
-function showCodexDetail(html) {
-    elCodexDetail.innerHTML = html;
+// Pack text is untrusted (imported/shared packs), so it goes in as text, never HTML.
+function showCodexDetail(title, desc) {
+    elCodexDetail.textContent = '';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    elCodexDetail.append(strong, document.createElement('br'), desc || '');
     elCodexDetail.classList.remove('hidden');
+}
+
+function makeCodexHeading(className, label, count) {
+    const div = document.createElement('div');
+    div.className = className;
+    div.textContent = label + ' ';
+    const span = document.createElement('span');
+    span.className = 'codex-section-count';
+    span.textContent = count;
+    div.appendChild(span);
+    return div;
 }
 
 function makeCodexTab(discovered, label, onOpen) {
@@ -140,14 +155,14 @@ function renderCodex() {
 
     const mechSection = document.createElement('div');
     mechSection.className = 'codex-section';
-    mechSection.innerHTML = `<div class="codex-section-title">Coping Mechanisms <span class="codex-section-count">${mechFound}/${mechTags.length}</span></div>`;
+    mechSection.appendChild(makeCodexHeading('codex-section-title', 'Coping Mechanisms', `${mechFound}/${mechTags.length}`));
     const mechTabs = mechTags.map(tag => {
         const mech = content.mechanisms[tag];
         const isFound = !!data.mechanisms[tag];
         return makeCodexTab(isFound, isFound ? mech.name : '???', () => {
-            showCodexDetail(isFound
-                ? `<strong>${mech.name}</strong><br>${mech.desc || ''}`
-                : `<strong>??? Coping Mechanism</strong><br>Not yet observed. Lean on the same response three times in one run to find out what it is.`);
+            showCodexDetail(...(isFound
+                ? [mech.name, mech.desc]
+                : ['??? Coping Mechanism', 'Not yet observed. Lean on the same response three times in one run to find out what it is.']));
         });
     });
     renderCodexRow(mechSection, null, null, mechTabs);
@@ -165,13 +180,13 @@ function renderCodex() {
 
         const row = document.createElement('div');
         row.className = 'codex-subrow';
-        row.innerHTML = `<div class="codex-subrow-title">Case #${slotIdx + 1} <span class="codex-section-count">${foundHere}/${variants.length}</span></div>`;
+        row.appendChild(makeCodexHeading('codex-subrow-title', `Case #${slotIdx + 1}`, `${foundHere}/${variants.length}`));
         const tabs = variants.map((variant, vIdx) => {
             const isFound = !!data.survival[`${slotIdx}:${vIdx}`];
             return makeCodexTab(isFound, isFound ? variant.title : String(vIdx + 1).padStart(2, '0'), () => {
-                showCodexDetail(isFound
-                    ? `<strong>${variant.title}</strong><br>${variant.desc || ''}`
-                    : `<strong>Case #${slotIdx + 1}, File ${vIdx + 1}</strong><br>Sealed. Survive a run that lands here to open it.`);
+                showCodexDetail(...(isFound
+                    ? [variant.title, variant.desc]
+                    : [`Case #${slotIdx + 1}, File ${vIdx + 1}`, 'Sealed. Survive a run that lands here to open it.']));
             });
         });
         renderCodexRow(row, null, null, tabs);
@@ -192,13 +207,13 @@ function renderCodex() {
 
         const row = document.createElement('div');
         row.className = 'codex-subrow';
-        row.innerHTML = `<div class="codex-subrow-title">${label} <span class="codex-section-count">${foundHere}/${pool.length}</span></div>`;
+        row.appendChild(makeCodexHeading('codex-subrow-title', label, `${foundHere}/${pool.length}`));
         const tabs = pool.map((variant, vIdx) => {
             const isFound = !!data.failure[`${statKey}:${vIdx}`];
             return makeCodexTab(isFound, isFound ? variant.title : String(vIdx + 1).padStart(2, '0'), () => {
-                showCodexDetail(isFound
-                    ? `<strong>${variant.title}</strong><br>${variant.desc || ''}`
-                    : `<strong>${label} Failure, File ${vIdx + 1}</strong><br>Sealed. Bottom out this stat to open it.`);
+                showCodexDetail(...(isFound
+                    ? [variant.title, variant.desc]
+                    : [`${label} Failure, File ${vIdx + 1}`, 'Sealed. Bottom out this stat to open it.']));
             });
         });
         renderCodexRow(row, null, null, tabs);

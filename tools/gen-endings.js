@@ -8,7 +8,7 @@
 // random variant, prints its title+desc, and marks the corresponding flat
 // Case Files slot -- see game.sh for the full index scheme
 // (CASEFILE_COUNT/CASEFILE_MECH_BASE/CASEFILE_NGPLUS) and
-// SESSION_HANDOFF.md for why the announcement's title is duplicated inline
+// docs/archive/SCI_PORT_HANDOFF_2026_09.md for why the announcement's title is duplicated inline
 // per case rather than looked up from a shared helper (this codebase's own
 // established "duplicate short strings, don't share across scripts"
 // precedent -- avoids a new cross-script (use ...) pair with casefiles.sc
@@ -61,7 +61,7 @@ for (const stat of FAILURE_STAT_ORDER) {
 // sciString() correctly, deliberately rejects embedded literal double
 // quotes -- there's no way to escape one inside a ""-delimited SCI0
 // string (confirmed the hard way earlier in this project, see
-// SESSION_HANDOFF.md's mechanisms.sc entry). One ending description has
+// docs/archive/SCI_PORT_HANDOFF_2026_09.md's mechanisms.sc entry). One ending description has
 // exactly one such case ("...how \"fine\" you are..."). Rather than
 // editing js/content-endings.js (shared with the browser version, whose
 // HTML rendering has no such restriction) or softening sciString's own
@@ -126,7 +126,7 @@ function fileHeader(filename, scriptConst, description) {
 
 // One file per POOL, not bundled 4-5-at-a-time like the original
 // endingcontent1/2/3.sc split -- real heap-exhaustion bug, confirmed via
-// debug instrumentation (see SESSION_HANDOFF.md): rm002.sc's
+// debug instrumentation (see docs/archive/SCI_PORT_HANDOFF_2026_09.md): rm002.sc's
 // printEnding()/printSurvivalEnding() only ever calls exactly ONE
 // PrintSurvivalEndingN()/PrintFailureEndingN() per ending shown, picked by
 // a stat-threshold check, but the old bundling meant Load()ing that one

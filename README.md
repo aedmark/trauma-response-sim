@@ -85,7 +85,7 @@ Every event, ending (survival *and* failure), zone, stat bar name, and numeric k
 
 ## Version History
 
-See [`CHANGELOG.md`](CHANGELOG.md) for what changed and when, release by release.
+See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for what changed and when, release by release.
 
 ## License
 

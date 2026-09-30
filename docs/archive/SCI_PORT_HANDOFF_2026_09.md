@@ -1,3 +1,7 @@
+> Archived 2026-09-30: this was the repo-root `SESSION_HANDOFF.md` for the SCI0 port. The port now lives in its own
+> repo (github.com/aedmark/TRS_SCI); paths below such as `TRS_SCI/` inside this repo and
+> `~/WebstormProjects/...` are historical. Only the generator tools in `tools/` remain here.
+
 # Session handoff: T.R.S. → SCI0 port
 
 Paste this into a fresh context window to resume. This is a cleaned-up
