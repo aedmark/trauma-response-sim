@@ -5,3 +5,7 @@ TRS_SCI/art/
 # Zipped distribution builds, regenerated as needed (name varies --
 # seen as both TRS_SCI.zip and Archive.zip).
 TRS_SCI/*.zip
+
+# Python caches created by the documentation checks.
+__pycache__/
+*.py[cod]

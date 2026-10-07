@@ -11,7 +11,8 @@ Changes: [CHANGELOG.md](CHANGELOG.md). Older material: [archive/](archive/README
 
 ## Current state
 
-_Last updated: 2026-10-07, session 3, on `main` after 0a39b2c; the 3x manual work is uncommitted._
+_Last updated: 2026-10-07, session 3, on `main` after 36add10; the final generator attribution and rebuilt manual
+are uncommitted._
 
 **Where things stand:** the browser game is at 4.17.16 plus unreleased fixes (see CHANGELOG): pack text is no longer
 parsed as HTML in Case Files, and packs are validated deeply on import and load. The repo has two committed,
@@ -28,7 +29,7 @@ port lives in its own repo; this repo keeps only its generators in `tools/`.
 | `python3 tools/check_docs.py` | **0 errors, 0 warnings** |
 | `python3 tools/manual.py check docs/trs.manual.json` | **4 sections, 13 entries, 0 warnings** |
 | `python3 tools/test_manual.py -v` | **6/6 passed** |
-| 3x manual build | **`docs/manual.html`, 44,645 bytes, 0 warnings** |
+| 3x manual build | **`docs/manual.html`, 44,612 bytes, 0 warnings** |
 
 **Not verified**
 - Visual browser review of `docs/manual.html`; the in-app browser's URL policy blocked the local `file://` page.
@@ -36,15 +37,16 @@ port lives in its own repo; this repo keeps only its generators in `tools/`.
 - Firefox, Safari, phones, `file://`, timed events, share sheet.
 
 **Gotchas for the next session**
-- `3x-documentation-scheme/` is the maintainer-supplied reference checkout and a nested Git repository; it remains
-  unmodified and untracked. The project-owned copies used by the manual are listed in the repository map.
+- Commit 36add10 recorded the maintainer-supplied `3x-documentation-scheme/` reference checkout as a Git link but
+  has no `.gitmodules` entry. The maintainer plans to remove it; the project-owned manual does not depend on it.
 - `docs/Itch-SCI.md` was deleted in the working tree by the maintainer before session 1; left as is.
 - `tools/` generators throw unless a TRS_SCI checkout exists at `TRS_SCI_DIR` (default `~/RiderProjects/TRS_SCI`).
 
 ## Next steps (in order)
 
-1. Maintainer: review and commit; decide the version number for the Unreleased CHANGELOG section.
-2. Q-001: decide where the SCI generators live.
+1. Maintainer: remove the stray 3x Git link as planned, review the follow-up diff, and commit.
+2. Maintainer: decide the version number for the Unreleased CHANGELOG section.
+3. Q-001: decide where the SCI generators live.
 
 ## Open questions for maintainers
 
@@ -60,7 +62,8 @@ Newest first. Past 10 entries, move the oldest to `docs/archive/`.
 **Goal:** Apply the supplied 3x What / How / Why documentation template to this project.
 **Done:** added `docs/trs.manual.json` with 13 evidence-linked entries and generated `docs/manual.html`; integrated
 the manual into AGENTS, README, the documentation map, testing guidance, and D-005. Copied the reusable schema,
-generator, license notice, and focused tests into project-owned paths; left the supplied nested repository untouched.
+generator, license notice, and focused tests into project-owned paths. Those files do not depend on the supplied
+nested repository; its stray Git link from 36add10 is scheduled for maintainer removal.
 **Decisions:** D-005 keeps the manual as a generated synthesis; focused Markdown remains authoritative.
 **Verified:** manual validation and build, the 6 focused generator tests, and the project documentation check; full
 results are in Current state.

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Build portable What/How/Why manuals from a small JSON content model."""
+"""Build portable What/How/Why manuals from a small JSON content model.
+
+Adapted from the 3x Documentation Scheme; see tools/manual.LICENSE.
+"""
 
 from __future__ import annotations
 
@@ -415,7 +418,7 @@ def run_build(source: Path, output: Path, overrides: list[str]) -> int:
 def starter(name: str) -> dict[str, Any]:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "my-project"
     return {
-        "$schema": "scheme/manual.schema.json",
+        "$schema": "manual.schema.json",
         "project": {"name": name, "short_name": name, "version": "0.1.0", "repository": ""},
         "manual": {
             "title": "{{project.name}} Manual",
