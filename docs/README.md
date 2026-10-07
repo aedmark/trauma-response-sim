@@ -16,6 +16,7 @@ Each fact has one authoritative home; other documents link to it instead of copy
 | `TESTING.md` | Contributors | How to verify, and what is not verified | Results (those live in HANDOFF) |
 | `SECURITY.md` | Contributors, reporters | Trust boundaries and reporting | Architecture detail |
 | `CHANGELOG.md` | Players | Released changes | Session logs |
+| `trs.manual.json`, `manual.html` | Newcomers and maintainers | Evidence-linked What / How / Why synthesis and its generated view | Authoritative topic detail or chronological history |
 | `Itch.md` | The itch.io page | Store-page copy for the browser game | Everything else |
 | `SCI0-research-findings.md`, `sci0-control-screen-hotspots.md` | SCI0-port work | Research notes kept from the port | Current port state (TRS_SCI repo) |
 | `archive/` | Anyone checking history | Retired documents | Anything current |
@@ -32,6 +33,7 @@ Update documents because a relevant fact changed, not merely because a session e
 | Durable tradeoff or reversal | DECISIONS; mark the old decision superseded |
 | Verification command or known limitation | TESTING |
 | Trust boundary or untrusted-input handling | SECURITY |
+| Behavior, architecture, or rationale covered by the 3x manual | `trs.manual.json`; rebuild `manual.html` |
 | Work pauses with context another session needs | HANDOFF |
 | New planned work | ROADMAP, with origin and done-when |
 
@@ -40,3 +42,4 @@ Update documents because a relevant fact changed, not merely because a session e
 - Use exact commands and repository-relative paths.
 - Date volatile observations and name the browser or environment when it matters.
 - Link to the source of truth instead of restating it.
+- Preserve 3x entry IDs when titles change, cite evidence for implementation claims, and label inferred rationale.

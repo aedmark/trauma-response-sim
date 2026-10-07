@@ -83,6 +83,10 @@ Everything above lives in your browser's `localStorage` — there's no account a
 
 Every event, ending (survival *and* failure), zone, stat bar name, and numeric knob in the game lives in one exportable/importable JSON structure called a content pack. [`editor.html`](editor.html) is a full visual editor for it — no code required — and [`AUTHORING.md`](AUTHORING.md) is the complete guide: what each field does, a start-to-finish walkthrough of writing a new event, the raw JSON schema if you'd rather hand-edit, and the design notes that keep new content feeling like it belongs next to everything already there.
 
+## Project Manual
+
+Open [`docs/manual.html`](docs/manual.html) for a searchable What / How / Why guide to the simulation, its content system, local data, and maintenance boundaries. Its structured source is `docs/trs.manual.json`; the focused Markdown documents remain the authoritative homes for their individual subjects.
+
 ## Version History
 
 See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for what changed and when, release by release.

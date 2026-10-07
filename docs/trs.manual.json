@@ -1,0 +1,279 @@
+{
+  "$schema": "./manual.schema.json",
+  "project": {
+    "name": "Trauma Response Simulator",
+    "short_name": "T.R.S.",
+    "version": "4.17.16",
+    "repository": "https://github.com/aedmark/trs"
+  },
+  "manual": {
+    "title": "Trauma Response Simulator Manual",
+    "subtitle": "What the simulator does, how it works, and why it is built this way",
+    "description": "A searchable guide to the browser game, its local-only companion tools, and the boundaries maintainers must preserve. Player instructions remain in [README.md](../README.md); content-pack details remain in [AUTHORING.md](../AUTHORING.md).",
+    "badges": [
+      "Static browser game",
+      "Local-only data",
+      "Seeded runs",
+      "No runtime dependencies"
+    ],
+    "footer": "T.R.S. {{project.version}} · Facts are linked to their evidence; inferred rationale is labeled."
+  },
+  "theme": {
+    "accent": "#ff5240",
+    "accent_secondary": "#2fe0c4",
+    "icon": "△"
+  },
+  "sections": [
+    {
+      "id": "simulation",
+      "title": "The Simulation",
+      "description": "The player-facing loop, its hidden response model, and the modes that change a run.",
+      "entries": [
+        {
+          "id": "turn-loop",
+          "title": "Turn loop and endings",
+          "summary": "Choose a response, absorb hidden stat changes, and continue until an ending condition wins.",
+          "tags": ["gameplay", "engine"],
+          "what": "Presents a sequence of everyday stressors. Each choice changes Repression, Social Mask, and Inner Child until a failure threshold or the mode's turn limit produces an ending.",
+          "how": [
+            "`startGame()` creates run state and calls `loadRandomEvent()`.",
+            "`handleChoice()` applies the choice effects and any unlocked mechanism modifier, clamps stats to 0–100, and updates the turn log.",
+            "`checkGameEnd()` evaluates failure thresholds and the turn limit; otherwise the engine loads another event."
+          ],
+          "why": "The loop makes coping patterns legible through accumulated consequences rather than a single right-answer quiz. This intent is recorded in the player explanation and reinforced by D-003's hidden-effects rule.",
+          "evidence": [
+            "README.md",
+            "js/engine.js",
+            "docs/DECISIONS.md"
+          ],
+          "related": ["hidden-responses", "modes-and-seeds"]
+        },
+        {
+          "id": "hidden-responses",
+          "title": "Hidden trauma responses and mechanisms",
+          "summary": "Every choice is tagged fawn, flight, fight, freeze, or secure, but the label and effects stay hidden until after the choice.",
+          "tags": ["gameplay", "mechanisms", "invariant"],
+          "what": "Tracks how often the player chooses each of five response identities. Repeating one three times unlocks its coping mechanism, whose modifier affects later choices with the same tag.",
+          "how": "Choice objects carry a `tag` and stat effects. `handleChoice()` increments the matching counter, unlocks the pack-defined mechanism at `config.unlockThreshold`, and adds its `mod` to later matching effects. The interface exposes neither the tag nor numerical outcome before selection.",
+          "why": "D-003 records the deliberate rule: choices should feel like real reactions under uncertainty, not visible arithmetic that can be optimized before clicking.",
+          "evidence": [
+            "README.md",
+            "AUTHORING.md",
+            "js/engine.js",
+            "docs/DECISIONS.md"
+          ],
+          "related": ["turn-loop", "content-pack-contract", "case-files"]
+        },
+        {
+          "id": "modes-and-seeds",
+          "title": "Modes, seeds, and timed events",
+          "summary": "Standard, Extended Therapy, and Arcade reuse one engine while changing limits, scaling, and starting state.",
+          "tags": ["gameplay", "randomness", "replay"],
+          "what": "Supports a finite standard run, an unlockable longer and more volatile Extended Therapy run, and an endless escalating Arcade run. Optional timed events can choose a response when the clock expires. Standard and Extended Therapy runs can replay a supplied seed.",
+          "how": [
+            "`hashSeed()` and `mulberry32()` create the run's deterministic random-number generator; in-run draws use `state.rng`.",
+            "Mode flags select the turn limit, effect multiplier, fixed or rolled starting stats, and Arcade escalation tier.",
+            "Timed events use pack-wide chance and duration values, with per-event opt-out or duration overrides."
+          ],
+          "why": "Seeds make comparisons and bug reports repeatable. The alternate modes extend replay value without creating separate engines. The shared-engine rationale is inferred from the common state and functions in `js/engine.js`; deterministic replay is an explicit architecture invariant.",
+          "evidence": [
+            "README.md",
+            "js/engine.js",
+            "docs/ARCHITECTURE.md",
+            "tools/smoke-test.js"
+          ],
+          "related": ["turn-loop", "verification"]
+        },
+        {
+          "id": "sharing-results",
+          "title": "Result sharing",
+          "summary": "Sharing is an explicit, on-device handoff after a run ends.",
+          "tags": ["player action", "privacy"],
+          "what": "Builds a text summary or portrait image containing the ending, stats, seed, optional player name, and acquired mechanisms. The player can copy, download, or invoke the device share sheet.",
+          "how": "Canvas helpers in `js/engine.js` render the image locally. `navigator.share` receives the generated file when supported; desktop fallback downloads it, while the text path writes only after the player requests a copy.",
+          "why": "The explicit handoff preserves the project's local-only promise while still making results portable. No result is transmitted automatically.",
+          "evidence": [
+            "README.md",
+            "js/engine.js",
+            "docs/SECURITY.md"
+          ],
+          "related": ["local-state", "field-log"]
+        }
+      ]
+    },
+    {
+      "id": "persistent-features",
+      "title": "Persistent Features",
+      "description": "State that survives a run stays in the browser and has explicit reset behavior.",
+      "entries": [
+        {
+          "id": "case-files",
+          "title": "Case Files",
+          "summary": "A cross-run archive reveals only endings and mechanisms the player has actually encountered.",
+          "tags": ["collection", "localStorage"],
+          "what": "Records discovered survival-ending variants, failure-ending variants, and coping mechanisms. Undiscovered entries remain redacted.",
+          "how": "`js/codex.js` stores slot indexes and mechanism keys under `uct_codex_v1`. A signature derived from ending-pool sizes and mechanism keys detects incompatible content-pack shapes and resets the archive instead of mislabeling old discoveries.",
+          "why": "The archive gives repeat runs a persistent collection goal without revealing choice effects or ending conditions. Numbered cases preserve D-003's hidden-information boundary.",
+          "evidence": [
+            "README.md",
+            "AUTHORING.md",
+            "js/codex.js",
+            "docs/DECISIONS.md"
+          ],
+          "related": ["hidden-responses", "local-state", "content-pack-contract"]
+        },
+        {
+          "id": "field-log",
+          "title": "Field Log",
+          "summary": "A sincere journal sits beside the game but is not part of the simulation.",
+          "tags": ["journal", "protected wording", "localStorage"],
+          "what": "Lets a player record a real event, their response, body sensations, what helped, and optional response tags. It includes a notice that it is a self-tracking tool rather than therapy or crisis support.",
+          "how": "`js/field-log.js` renders and stores entries under `uct_field_log_v1`. Its mode shares the page shell with the simulation but has separate state and a separate deletion confirmation.",
+          "why": "D-004 records that the journal is real user material: its language stays sincere, its crisis notice stays intact, and bulk game-data reset may not silently erase it.",
+          "evidence": [
+            "README.md",
+            "index.html",
+            "js/field-log.js",
+            "docs/DECISIONS.md"
+          ],
+          "related": ["local-state", "sharing-results"]
+        },
+        {
+          "id": "local-state",
+          "title": "Local state and reset boundaries",
+          "summary": "All durable state lives in named `localStorage` keys, and the old `uct_*` prefix is permanent.",
+          "tags": ["storage", "compatibility", "privacy"],
+          "what": "Persists the custom pack, Case Files, Extended Therapy unlock, Arcade score, player name, Timed Events preference, and Field Log without an account or server.",
+          "how": "Feature modules read and write their established keys. `resetAllGameData()` removes simulation data after one confirmation, then asks separately whether to remove the Field Log.",
+          "why": "D-001 keeps the game serverless, D-002 preserves existing saves across the product rename, and D-004 protects journal entries from the ordinary reset path.",
+          "evidence": [
+            "docs/ARCHITECTURE.md",
+            "js/main.js",
+            "docs/DECISIONS.md",
+            "tools/smoke-test.js"
+          ],
+          "related": ["case-files", "field-log", "static-runtime"]
+        }
+      ]
+    },
+    {
+      "id": "content-system",
+      "title": "Content System",
+      "description": "Events, wording, tuning, endings, and display names travel together as one validated content pack.",
+      "entries": [
+        {
+          "id": "content-pack-contract",
+          "title": "Content-pack contract",
+          "summary": "One JSON-compatible structure supplies the simulator's authored content and tunable behavior.",
+          "tags": ["content", "schema", "untrusted input"],
+          "what": "Defines config values, zones, the five mechanisms, glitch logs, failure endings, survival endings, and events. A saved custom pack replaces the built-in default when it passes validation.",
+          "how": "Classic scripts assemble `DEFAULT_CONTENT`; `getContent()` reads `uct_custom_content_v1`, parses it, and falls back to the default when `contentPackProblems()` finds a run-breaking structural problem.",
+          "why": "Keeping text and tuning together lets a content pack reskin the whole simulation without changing the engine. The separation follows D-001's dependency-free static architecture and the authoring contract.",
+          "evidence": [
+            "AUTHORING.md",
+            "js/content.js",
+            "js/content-mechanisms.js",
+            "js/content-endings.js",
+            "js/content-events.js"
+          ],
+          "related": ["content-editor", "content-safety", "hidden-responses"]
+        },
+        {
+          "id": "content-editor",
+          "title": "Content editor",
+          "summary": "A separate static page edits, validates, imports, exports, saves, and resets content packs.",
+          "tags": ["authoring", "editor"],
+          "what": "Provides form controls for the content-pack structure and a draft workflow that can be previewed in the game after saving.",
+          "how": "`editor.html` loads the content globals and `js/editor.js`. The editor keeps a draft in memory, writes the full pack to the shared storage key only on Save, exports JSON, and validates imported JSON before making it the current draft.",
+          "why": "Explicit Save prevents partial edits from overwriting a working pack. Keeping the editor separate from the game preserves the simple two-page static deployment. This rationale is recorded in `AUTHORING.md`.",
+          "evidence": [
+            "AUTHORING.md",
+            "editor.html",
+            "js/editor.js",
+            "js/content.js"
+          ],
+          "related": ["content-pack-contract", "content-safety", "verification"]
+        },
+        {
+          "id": "content-safety",
+          "title": "Content validation and rendering safety",
+          "summary": "Imported and saved packs are untrusted input even though the game has no server.",
+          "tags": ["security", "validation"],
+          "what": "Rejects pack shapes that would break a run and displays pack-authored strings as text rather than executable markup.",
+          "how": "`contentPackProblems()` checks required collections, known mechanism tags, numeric config and modifier values, and effect shapes. Rendering paths use `textContent` for pack strings; the smoke test includes a Case Files escaping check and malformed-pack fallback check.",
+          "why": "A local JSON file can still contain hostile markup or invalid values. Treating it as untrusted preserves the static app's trust boundary without forbidding community content.",
+          "evidence": [
+            "docs/SECURITY.md",
+            "js/content.js",
+            "js/codex.js",
+            "tools/check-content.js",
+            "tools/smoke-test.js"
+          ],
+          "related": ["content-pack-contract", "content-editor", "verification"]
+        }
+      ]
+    },
+    {
+      "id": "maintenance",
+      "title": "Maintenance and Boundaries",
+      "description": "The repository remains portable by keeping runtime structure small, verification explicit, and the SCI0 port outside this checkout.",
+      "entries": [
+        {
+          "id": "static-runtime",
+          "title": "Static runtime and script order",
+          "summary": "The game runs from `file://` or any static host with no build step or runtime dependency.",
+          "tags": ["architecture", "invariant"],
+          "what": "Ships as plain HTML, CSS, and JavaScript. Players can open `index.html` directly; contributors may also use a local static server.",
+          "how": "Classic `<script>` tags load shared globals in dependency order: content fragments, content assembly, Case Files, engine, Field Log, and main-page controls. The editor loads the same content base followed by its own controller.",
+          "why": "D-001 records the trade-off: universal static delivery and no dependency tree are worth relying on globals and a deliberate script order.",
+          "evidence": [
+            "index.html",
+            "editor.html",
+            "docs/ARCHITECTURE.md",
+            "docs/DECISIONS.md"
+          ],
+          "related": ["local-state", "verification", "sci0-boundary"]
+        },
+        {
+          "id": "verification",
+          "title": "Verification workflow",
+          "summary": "Small dependency-free checks cover pack structure, the main browser paths, documentation consistency, and this manual.",
+          "tags": ["testing", "quality"],
+          "what": "Provides repeatable checks for content validity, a seeded Chromium playthrough, JavaScript syntax, documentation references, and 3x manual structure and generation.",
+          "how": [
+            "Run `node tools/check-content.js` for the default and shared packs.",
+            "Run `node tools/smoke-test.js` for the browser paths and deterministic replay.",
+            "Run `python3 tools/check_docs.py` for the Markdown documentation set.",
+            "Run `python3 tools/manual.py check docs/trs.manual.json` and rebuild `docs/manual.html` for manual changes."
+          ],
+          "why": "D-001 rules out an installed test stack, so the committed checks use platform tools and standard libraries. The 3x source is validated separately because `check_docs.py` checks document relationships rather than the manual schema.",
+          "evidence": [
+            "docs/TESTING.md",
+            "tools/check-content.js",
+            "tools/smoke-test.js",
+            "tools/check_docs.py",
+            "tools/manual.py",
+            "tools/test_manual.py"
+          ],
+          "related": ["modes-and-seeds", "content-safety", "static-runtime"]
+        },
+        {
+          "id": "sci0-boundary",
+          "title": "SCI0 port boundary",
+          "summary": "This repository owns generators for the DOS port, but not the port's generated sources or current state.",
+          "tags": ["tooling", "separate repository"],
+          "what": "Transforms browser-game content into source material consumed by the SCI0 port in `github.com/aedmark/TRS_SCI`.",
+          "how": "Node scripts under `tools/` read the canonical JavaScript content and write through `tools/lib/sci-paths.js` into `TRS_SCI_DIR`, defaulting to a separate local checkout. Port outputs are committed there rather than here.",
+          "why": "The browser game is the canonical content source while SCI-specific compiled artifacts belong with the port. The exact long-term home of the generators remains open as Q-001, so this manual records the current boundary without presenting that placement as settled intent.",
+          "evidence": [
+            "AGENTS.md",
+            "docs/ARCHITECTURE.md",
+            "docs/DECISIONS.md",
+            "tools/lib/sci-paths.js"
+          ],
+          "related": ["static-runtime", "content-pack-contract"]
+        }
+      ]
+    }
+  ]
+}

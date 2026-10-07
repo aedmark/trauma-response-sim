@@ -13,6 +13,7 @@ before 4.17.17 were verified with one-off scripts described in [CHANGELOG.md](CH
 | Smoke | `node tools/smoke-test.js` | Page loads without errors; a seeded run ends; seeds replay; Case Files records and escapes pack text; bad saved pack falls back; Reset All Data spares the Field Log | Firefox, Safari, phones, share sheet, timed events, editor UI, `file://` | Node 22+, Chromium or Chrome (`CHROME=` to override); about 5 s |
 | Syntax | `node --check js/<file>.js` (each changed file) | The file parses | That it runs or loads in order | Node |
 | Docs | `python3 tools/check_docs.py` | Links, roadmap/decision IDs, no placeholders | That the docs are true | Python 3 |
+| 3x manual | `python3 tools/manual.py check docs/trs.manual.json` | Manual structure, complete triads, evidence shape, and related IDs | That evidence supports each claim or generated HTML is current | Python 3 |
 | Case File indices | `node tools/verify-casefile-indices.js` | JS endings/mechanisms order matches the SCI port's `CaseFileTitles.sc` | Anything about the browser game | TRS_SCI checkout (`TRS_SCI_DIR`) |
 | Manual play | serve and play (below) | The change works in one browser | Other browsers, phones | A browser |
 
@@ -34,6 +35,7 @@ for anything touching loading or storage, since that is a supported way to play.
 | Changed area | Minimum checks |
 | --- | --- |
 | Documentation only | `python3 tools/check_docs.py` |
+| `docs/trs.manual.json` | 3x manual check, then rebuild `docs/manual.html` and review it in a browser |
 | Any game code | `node tools/check-content.js` and `node tools/smoke-test.js` |
 | Event or ending content | `node --check` on the file; play a seeded run; if endings/mechanisms changed shape, `verify-casefile-indices.js` |
 | Engine or UI | `node --check`; manual play through to an ending; check the console for errors |
@@ -49,3 +51,5 @@ for anything touching loading or storage, since that is a supported way to play.
 - The smoke test plays by clicking the first non-glitch choice each turn, with timed events off. A change to event
   order or the RNG changes its ending and turn count; only a missing ending or a replay mismatch is a failure.
 - The smoke test sometimes leaves a `trs-smoke-*` profile in the system temp dir (Chrome still writing on exit).
+- `docs/manual.html` is generated. Edit `docs/trs.manual.json`, preserve stable entry IDs, then rebuild with
+  `python3 tools/manual.py build docs/trs.manual.json --output docs/manual.html`.

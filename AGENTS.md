@@ -40,6 +40,8 @@ maintainer.
 4. Update the roadmap, decisions, architecture, security notes, and changelog only when their update trigger applies
    (see `docs/README.md`).
 5. Run `python3 tools/check_docs.py` and report the result.
+6. If `docs/trs.manual.json` changed, validate it and rebuild `docs/manual.html` using the commands in
+   `docs/TESTING.md`.
 
 Do not manufacture ceremony: typo-only or mechanical changes do not need a decision, changelog entry, or handoff
 rewrite unless they alter a claim those documents make.
@@ -108,8 +110,11 @@ Never force-push, rewrite shared history, or publish without explicit permission
 | `docs/TESTING.md` | How changes are verified and what is not |
 | `docs/SECURITY.md` | Trust boundaries and reporting |
 | `docs/CHANGELOG.md` | Release notes |
+| `docs/trs.manual.json`, `docs/manual.html` | 3x What / How / Why source and generated standalone guide |
+| `docs/manual.schema.json` | JSON Schema for the 3x manual source |
 | `docs/archive/` | Historical material no longer current |
 | `tools/check_docs.py` | Documentation consistency checks |
+| `tools/manual.py`, `tools/test_manual.py`, `tools/manual.LICENSE` | 3x manual generator, focused tests, and upstream license |
 
 ## Engineering conventions
 
@@ -132,4 +137,6 @@ Never force-push, rewrite shared history, or publish without explicit permission
 
 - Run: open `index.html`, or `python3 -m http.server 8934` (the `static-server` entry in `.claude/launch.json`).
 - Fast checks: `node tools/check-content.js`, `node tools/smoke-test.js`, `python3 tools/check_docs.py`.
+- Manual check: `python3 tools/manual.py check docs/trs.manual.json`; rebuild with
+  `python3 tools/manual.py build docs/trs.manual.json --output docs/manual.html`.
 - Detailed guidance: `docs/TESTING.md`.

@@ -11,26 +11,33 @@ Changes: [CHANGELOG.md](CHANGELOG.md). Older material: [archive/](archive/README
 
 ## Current state
 
-_Last updated: 2026-09-30, session 2, on `main` after 3c7ace2: docs adopted (session 1) and P1-01, P1-02, P2-01,
-P2-02 fixed; nothing committed yet._
+_Last updated: 2026-10-07, session 3, on `main` after 0a39b2c; the 3x manual work is uncommitted._
 
 **Where things stand:** the browser game is at 4.17.16 plus unreleased fixes (see CHANGELOG): pack text is no longer
-parsed as HTML in Case Files, and packs are validated deeply on import and load. The repo now has two committed,
-dependency-free checks. The SCI0 port lives in its own repo; this repo keeps only its generators in `tools/`.
+parsed as HTML in Case Files, and packs are validated deeply on import and load. The repo has two committed,
+dependency-free game checks. A 3x What / How / Why manual now has a validated JSON source and generated standalone
+HTML view; its generator, schema, tests, and upstream license are integrated under `tools/` and `docs/`. The SCI0
+port lives in its own repo; this repo keeps only its generators in `tools/`.
 
-**Verified** (2026-09-30, Linux, Node 22.23.3, system Chromium, headless)
+**Verified** (latest: 2026-10-07, Linux; game checks last run 2026-09-30 with Node 22.23.3 and system Chromium)
 
 | Check | Result |
 | --- | --- |
 | `node tools/check-content.js` | **2/2 ok** (default pack: 196 events; fawn 152, flight 132, fight 132, freeze 134, secure 196) |
 | `node tools/smoke-test.js`, three runs | **7/7, 7/7, 7/7** |
 | `python3 tools/check_docs.py` | **0 errors, 0 warnings** |
+| `python3 tools/manual.py check docs/trs.manual.json` | **4 sections, 13 entries, 0 warnings** |
+| `python3 tools/test_manual.py -v` | **6/6 passed** |
+| 3x manual build | **`docs/manual.html`, 44,645 bytes, 0 warnings** |
 
 **Not verified**
+- Visual browser review of `docs/manual.html`; the in-app browser's URL policy blocked the local `file://` page.
 - The editor's import error message (`js/editor.js`) was not exercised in a browser; only `node --check`.
 - Firefox, Safari, phones, `file://`, timed events, share sheet.
 
 **Gotchas for the next session**
+- `3x-documentation-scheme/` is the maintainer-supplied reference checkout and a nested Git repository; it remains
+  unmodified and untracked. The project-owned copies used by the manual are listed in the repository map.
 - `docs/Itch-SCI.md` was deleted in the working tree by the maintainer before session 1; left as is.
 - `tools/` generators throw unless a TRS_SCI checkout exists at `TRS_SCI_DIR` (default `~/RiderProjects/TRS_SCI`).
 
@@ -46,6 +53,20 @@ dependency-free checks. The SCI0 port lives in its own repo; this repo keeps onl
 ## Session log
 
 Newest first. Past 10 entries, move the oldest to `docs/archive/`.
+
+### Session 3: 2026-10-07: apply the 3x documentation scheme
+
+**Contributor:** Codex
+**Goal:** Apply the supplied 3x What / How / Why documentation template to this project.
+**Done:** added `docs/trs.manual.json` with 13 evidence-linked entries and generated `docs/manual.html`; integrated
+the manual into AGENTS, README, the documentation map, testing guidance, and D-005. Copied the reusable schema,
+generator, license notice, and focused tests into project-owned paths; left the supplied nested repository untouched.
+**Decisions:** D-005 keeps the manual as a generated synthesis; focused Markdown remains authoritative.
+**Verified:** manual validation and build, the 6 focused generator tests, and the project documentation check; full
+results are in Current state.
+**Not verified:** local browser policy blocked visual review of the generated HTML; no game code changed, so no
+play-through.
+**Next session should start with:** maintainer review, then Q-001.
 
 ### Session 2: 2026-09-30: fix the issues found in session 1
 

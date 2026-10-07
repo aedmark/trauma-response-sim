@@ -37,6 +37,17 @@ The SCI0 port's own decisions (engine target, permanent cuts, DOSBox-X as test t
 **Decision:** No jokes in Field Log text; its crisis notice stays; its data is cleared only by a separate confirm.
 **Consequences:** Reset All Data asks twice.
 
+## D-005 Keep the 3x manual as a generated synthesis  (2026-10-07, status: accepted)
+**Context:** The project already has focused documents with clear ownership; the 3x scheme adds a reader-oriented
+What / How / Why view that necessarily draws from several of them.
+**Decision:** `docs/trs.manual.json` is the source for a committed standalone `docs/manual.html`. The manual cites
+the authoritative project files instead of replacing them. Entry IDs stay stable when titles change.
+**Alternatives:** Replace the focused Markdown set, which would blur ownership; or generate only on demand, which
+would make the manual unavailable to people opening the repository without Python.
+**Consequences:** Manual-covered changes update the JSON and generated HTML together. The integrated schema,
+standard-library generator, and focused tests retain the 3x scheme's MIT license notice in `tools/manual.LICENSE`.
+**Review trigger:** The manual becomes stale enough that its maintenance cost outweighs the guided view.
+
 ## Open questions
 
 - **Q-001** Should the SCI0 generators in `tools/` move to the TRS_SCI repo, leaving this repo browser-only?
